@@ -228,6 +228,20 @@ Rules:
 </header_instructions>
 ```
 
+### Low cache hit @ hapuppy
+
+Set plugin to cache mode. Can also increase `Queued Chat` size
+
+<img width="621" height="418" alt="{88BA0613-3DE7-4CAC-A983-58867A0E0E33}" src="https://github.com/user-attachments/assets/cb00b636-0525-44b0-a32d-81d22a3beb82" />
+
+Navigate to ST `config.yaml`: `enableSystemPromptCache: true` and `cachingAtDepth: 2`. Then it will look like
+
+<img width="1898" height="743" alt="{4435D170-E730-4E84-98C9-14CF8A5E8932}" src="https://github.com/user-attachments/assets/32e8a361-60d7-4082-81ba-8bca562812a5" />
+
+### No thinking @ hapuppy
+
+Use preset FF5.4 or later with forced reasoning. 
+
 ## License
 
 AGPL-3.0-or-later. See [LICENSE](LICENSE).
