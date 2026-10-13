@@ -32,6 +32,7 @@
  * @property {boolean} aborted - The user or the Work Gate stopped the run.
  * @property {boolean} blocked - The Foreground Gate closed.
  * @property {boolean} failureLimitReached - The run gave up on consecutive failures.
+ * @property {boolean} promotionFailed - The post-commit promotion drain gave up this run.
  */
 
 /**

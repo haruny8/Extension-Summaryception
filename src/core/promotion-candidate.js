@@ -166,6 +166,7 @@ async function validatePromotionCandidate({
     const sourceTokens = providedSourceTokens || (await countTextTokens(sourceNarrativeText));
     const sizeValidation = await validatePromotionSize({
         layerIndex,
+        mergeCount,
         promotedSnippet,
         settings,
         sourceTokens,
@@ -176,11 +177,24 @@ async function validatePromotionCandidate({
     return validatePromotionCompressesMemory({ layerIndex, mergeCount, promotedSnippet, settings });
 }
 
-async function validatePromotionSize({ layerIndex, promotedSnippet, settings, sourceTokens }) {
+async function validatePromotionSize({
+    layerIndex,
+    mergeCount,
+    promotedSnippet,
+    settings,
+    sourceTokens,
+}) {
     const outputTokens = await countTextTokens(promotedSnippet.text);
-    const targetTokens = getLayer0SummaryTokenTarget(settings);
-    const minTokens = getPromotionSummaryTokenTarget({ layerIndex, targetTokens });
-    const hardMaxTokens = getPromotionSummaryTokenHardMax({ layerIndex, targetTokens });
+    const sliderTarget = getLayer0SummaryTokenTarget(settings);
+    // Merged sources smaller than one slider-sized summary shrink the
+    // acceptance floor with them, so a faithful fold is not rejected as
+    // over-merged (issue #44).
+    const effectiveTarget = Math.min(sliderTarget, sourceTokens.count / mergeCount);
+    const minTokens = getPromotionSummaryTokenTarget({ layerIndex, targetTokens: effectiveTarget });
+    const hardMaxTokens = getPromotionSummaryTokenHardMax({
+        layerIndex,
+        targetTokens: sliderTarget,
+    });
     const tooShort = outputTokens.count < minTokens;
     if (outputTokens.count > hardMaxTokens || tooShort) {
         return rejectPromotionSize({
