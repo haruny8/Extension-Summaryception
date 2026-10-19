@@ -161,6 +161,15 @@ export function getSnippetDisplayMeta(snippet) {
 }
 
 /**
+ * Resolve the original chat range represented by a snippet.
+ * @param {object} snippet
+ * @returns {[number, number] | null}
+ */
+export function getSnippetSourceRange(snippet = {}) {
+    return resolveSnippetRange(extractSnippetMetadata(snippet).sourceMessageIds);
+}
+
+/**
  * Format a snippet as anchored narrative for chronology or promotion input.
  * Parses the snippet, strips any stored leading anchor from the narrative when
  * an anchor was produced, and joins anchor + narrative with single spaces.
@@ -237,7 +246,7 @@ function resolveSnippetRange(sourceMessageIds) {
     if (indices.length === 0) {
         return null;
     }
-    return [indices[0], indices[indices.length - 1]];
+    return /** @type {[number, number]} */ ([indices[0], indices[indices.length - 1]]);
 }
 
 function knownStateValue(value) {

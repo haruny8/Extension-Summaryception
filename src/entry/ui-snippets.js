@@ -1,7 +1,7 @@
 import { TOAST_TITLE, layerLabel, listNonEmptyLayers } from '../foundation/constants.js';
 import { refreshUi } from '../foundation/refresh.js';
 import { getChatStore } from '../foundation/chat-store.js';
-import { getSnippetDisplayMeta } from '../core/snippet-metadata.js';
+import { getSnippetDisplayMeta, getSnippetSourceRange } from '../core/snippet-metadata.js';
 import {
     deleteSnippetAt,
     getSnippetRegenerationTarget,
@@ -129,11 +129,14 @@ function buildSnippetBrowserItem(snippet, layerIndex, snippetIndex) {
 
 function getSnippetMeta(snippet) {
     const { sourceCount, mergedCount, fromLayer, promoted } = getSnippetDisplayMeta(snippet);
-    const rangeStr = sourceCount
-        ? `${sourceCount} source messages`
-        : mergedCount
-          ? `merged ${mergedCount} from L${fromLayer}`
-          : '';
+    const range = getSnippetSourceRange(snippet);
+    const rangeStr = range
+        ? `[${range[0]}-${range[1]}]`
+        : sourceCount
+          ? `${sourceCount} source messages`
+          : mergedCount
+            ? `merged ${mergedCount} from L${fromLayer}`
+            : '';
     const seedStr = promoted ? ' promoted' : '';
     return `${rangeStr}${seedStr}`;
 }
@@ -178,10 +181,6 @@ function renderSnippetBrowser(browser, view) {
 }
 
 function renderEmptySnippetBrowser(browser) {
-    if (hasFocusedSnippetEdit(browser)) {
-        return;
-    }
-
     browser.children().remove();
     $('<div class="sc-muted"></div>').text('No snippets to display.').appendTo(browser);
 }
@@ -189,7 +188,7 @@ function renderEmptySnippetBrowser(browser) {
 function removeMissingChildElements(parent, selector, keys) {
     parent.children(selector).each(function () {
         const child = $(this);
-        if (!keys.has(child.attr('data-key')) && !hasFocusedSnippetEdit(child)) {
+        if (!keys.has(child.attr('data-key'))) {
             child.remove();
         }
     });
@@ -243,11 +242,6 @@ function updateSnippetRow(row, snippet) {
         'data-idx': String(snippet.snippetIndex),
     });
 
-    if (hasFocusedSnippetEdit(row)) {
-        return;
-    }
-
-    row.children('.sc-snippet-edit').remove();
     const text = ensureSnippetText(row, snippet);
     const meta = ensureSnippetMeta(row, snippet);
     const redo = ensureSnippetRedo(row, snippet);
@@ -262,12 +256,14 @@ function updateSnippetRow(row, snippet) {
 
 function ensureSnippetText(row, snippet) {
     const text = ensureChild(row, '.sc-snippet-text', () =>
-        $('<span class="sc-snippet-text"></span>'),
+        $('<button class="sc-snippet-text"></button>'),
     );
     text.attr({
         'data-layer': String(snippet.layerIndex),
         'data-idx': String(snippet.snippetIndex),
         title: 'Click to edit',
+        type: 'button',
+        'aria-label': 'Edit snippet',
     });
     text.text(snippet.text);
     return text;
@@ -309,10 +305,6 @@ function ensureSnippetDelete(row) {
     return remove;
 }
 
-function hasFocusedSnippetEdit(scope) {
-    return scope.find('.sc-snippet-edit:focus').length > 0;
-}
-
 function onSnippetTextClick() {
     const position = getSnippetPosition($(this));
     if (!position) {
@@ -324,7 +316,7 @@ function onSnippetTextClick() {
         return;
     }
 
-    startSnippetEdit($(this), position, snippetText.text);
+    startSnippetEdit(position, snippetText.text);
 }
 
 function getSnippetPosition(element) {
@@ -338,40 +330,69 @@ function getSnippetPosition(element) {
     return { layerIdx, snippetIdx };
 }
 
-function startSnippetEdit(textEl, position, initialText) {
-    // Enter and blur can both request a finish; the latch keeps it to one run.
-    let finished = false;
-    const textarea = $('<textarea class="sc-snippet-edit"></textarea>').val(initialText);
-    const finish = async (shouldSave) => {
-        if (finished) {
+function startSnippetEdit(position, initialText) {
+    $('.sc-snippet-editor-overlay').remove();
+
+    const overlay = $('<div class="sc-snippet-editor-overlay"></div>');
+    const panel = $('<div class="sc-snippet-editor-panel" role="dialog" aria-modal="true"></div>');
+    const heading = $('<h3 class="sc-snippet-editor-title">Edit snippet</h3>');
+    const textarea = $('<textarea class="sc-snippet-editor-textarea"></textarea>').val(initialText);
+    const actions = $('<div class="sc-snippet-editor-actions"></div>');
+    const cancel = $(
+        '<button type="button" class="menu_button sc-snippet-editor-cancel"><i class="fa-solid fa-xmark"></i><span>Cancel</span></button>',
+    );
+    const save = $(
+        '<button type="button" class="menu_button sc-snippet-editor-save"><i class="fa-solid fa-check"></i><span>Save</span></button>',
+    );
+    let saving = false;
+
+    const close = () => overlay.remove();
+    const saveDraft = async () => {
+        if (saving) {
             return;
         }
-        finished = true;
+        saving = true;
+        save.prop('disabled', true);
         try {
-            if (shouldSave) {
-                await commitSnippetEdit(textarea, position);
+            const result = await commitSnippetEdit(textarea, position);
+            if (result?.status !== 'empty') {
+                close();
+                updateSnippetBrowser();
             }
         } finally {
-            updateSnippetBrowser();
+            saving = false;
+            save.prop('disabled', false);
         }
     };
 
-    textarea
-        .on('keydown', async function (e) {
-            if (e.key === 'Enter' && !e.shiftKey) {
-                e.preventDefault();
-                await finish(true);
-            } else if (e.key === 'Escape') {
-                e.preventDefault();
-                await finish(false);
-            }
-        })
-        .on('blur', async () => {
-            await finish(true);
-        });
+    cancel.on('click', (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        close();
+    });
+    save.on('click', (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        void saveDraft();
+    });
+    textarea.on('keydown', (event) => {
+        if (event.key === 'Escape') {
+            event.preventDefault();
+            close();
+        }
+    });
+    overlay.on('pointerdown click', (event) => {
+        event.stopPropagation();
+    });
+    overlay.on('click', (event) => {
+        if (event.target === overlay[0]) {
+            close();
+        }
+    });
 
-    textEl.replaceWith(textarea);
-    resizeSnippetEdit(textarea);
+    actions.append(cancel, save);
+    panel.append(heading, textarea, actions);
+    overlay.append(panel).appendTo('body');
     textarea.focus().select();
 }
 
@@ -392,15 +413,7 @@ async function commitSnippetEdit(textarea, position) {
         });
     }
     // Stay silent for 'unchanged', 'missing', and 'empty': the re-render restores the true state, and an accidental Enter must not toast.
-}
-
-function resizeSnippetEdit(textarea) {
-    const element = textarea[0];
-    if (!element) {
-        return;
-    }
-    element.style.height = 'auto';
-    element.style.height = element.scrollHeight + 'px';
+    return result;
 }
 
 async function onSnippetRedoClick() {

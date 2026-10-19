@@ -7,6 +7,7 @@ import {
     formatCompactSnippetAnchor,
     formatSnippetAnchor,
     getSnippetDisplayMeta,
+    getSnippetSourceRange,
     parseSnippet,
 } from '../src/core/snippet-metadata.js';
 import { installSummaryContext, makeMessages } from './test-helpers.js';
@@ -99,6 +100,22 @@ describe('getSnippetDisplayMeta', () => {
             fromLayer: undefined,
             promoted: false,
         });
+    });
+});
+
+describe('getSnippetSourceRange', () => {
+    it('resolves the source IDs into the original chat range', () => {
+        installSummaryContext({ chat: makeMessages(8) });
+
+        expect(getSnippetSourceRange({ sourceMessageIds: ['message-7', 'message-2'] })).toEqual([
+            2, 7,
+        ]);
+    });
+
+    it('returns null when a snippet has no resolvable source IDs', () => {
+        installSummaryContext({ chat: makeMessages(1) });
+
+        expect(getSnippetSourceRange({ sourceMessageIds: ['missing'] })).toBeNull();
     });
 });
 
