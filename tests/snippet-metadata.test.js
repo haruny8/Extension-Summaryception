@@ -49,7 +49,7 @@ describe('buildPromotedSnippetMetadata', () => {
 });
 
 describe('live metadata anchors', () => {
-    it('resolves source IDs to current indices', () => {
+    it('formats a full source/time anchor when scene time is known', () => {
         installSummaryContext({ chat: makeMessages(8) });
         const snippet = {
             sourceMessageIds: ['message-2', 'message-7'],
@@ -58,6 +58,13 @@ describe('live metadata anchors', () => {
 
         expect(formatSnippetAnchor(snippet)).toBe('[msgs 2-7; current 2024-01-02 14]');
         expect(formatCompactSnippetAnchor(snippet)).toBe('[2-7@2024-01-02T14]');
+    });
+
+    it('omits the unknown scene-time placeholder from a full anchor', () => {
+        installSummaryContext({ chat: makeMessages(8) });
+        expect(formatSnippetAnchor({ sourceMessageIds: ['message-2', 'message-7'] })).toBe(
+            '[msgs 2-7]',
+        );
     });
 
     it('omits anchors when no source ID resolves', () => {

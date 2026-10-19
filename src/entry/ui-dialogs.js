@@ -104,7 +104,7 @@ function showSlopIncomplete(outcome) {
 const SLOP_NOTICES = {
     idle: () => showManualRunIdle(ELASTIC_STRATEGIES.SLOP),
     completed: () =>
-        toastr.success('Slop Breaker complete. Reloading chat context.', TOAST_TITLE, {
+        toastr.success('Slop Breaker complete. Chat context refreshed.', TOAST_TITLE, {
             timeOut: 3000,
         }),
     blocked: (outcome) => {

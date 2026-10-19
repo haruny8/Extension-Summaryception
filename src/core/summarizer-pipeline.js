@@ -1,4 +1,3 @@
-import { getName1 } from '../foundation/context.js';
 import { isTraceEnabled, trace } from '../foundation/logger.js';
 import { getEffectiveSettings } from '../foundation/settings.js';
 import { appendLayer0PromptConstraints } from './layer0-compression.js';
@@ -32,6 +31,7 @@ export async function buildSummarizerPipelineInput({
         template: profile.policy.userPromptTemplate,
         storyTxt,
         contextStr,
+        messageCount: getMessageCount(call, storyTxt),
         settings,
         profile,
     });
@@ -40,6 +40,7 @@ export async function buildSummarizerPipelineInput({
               template: profile.policy.repairPromptTemplate,
               storyTxt,
               contextStr,
+              messageCount: getMessageCount(call, storyTxt),
               settings,
               profile,
           })
@@ -110,19 +111,51 @@ function hasSourceTokenMetadata(metadata = {}) {
 }
 
 /**
+ * Resolve the number of source items represented in this request.
+ * @param {import('./call-profile.js').CallProvenance} metadata
+ * @param {string} storyTxt
+ * @returns {number}
+ */
+function getMessageCount(metadata, storyTxt) {
+    if (
+        typeof metadata.messageCount === 'number' &&
+        Number.isInteger(metadata.messageCount) &&
+        metadata.messageCount >= 0
+    ) {
+        return metadata.messageCount;
+    }
+    if (
+        typeof metadata.mergedSnippetCount === 'number' &&
+        Number.isInteger(metadata.mergedSnippetCount) &&
+        metadata.mergedSnippetCount >= 0
+    ) {
+        return metadata.mergedSnippetCount;
+    }
+    return (String(storyTxt || '').match(/<msg\b/g) || []).length;
+}
+
+/**
  * @param {object} p
  * @param {string} p.template - User prompt template
  * @param {string} p.storyTxt - Story text
  * @param {string} p.contextStr - Context text
+ * @param {number} p.messageCount - Number of source items represented in the request
  * @param {ExtensionSettings} p.settings - Active settings
  * @param {import('./call-profile.js').CallProfile} p.profile - Resolved call profile
  * @returns {string}
  */
-function buildSummarizerPrompt({ template, storyTxt, contextStr, settings, profile }) {
+function buildSummarizerPrompt({
+    template,
+    storyTxt,
+    contextStr,
+    messageCount,
+    settings,
+    profile,
+}) {
     // replaceAll on purpose: every placeholder occurrence is replaced; user templates may repeat one.
     const prompt = template
-        .replaceAll('{{player_name}}', getName1())
         .replaceAll('{{context_str}}', contextStr || '(none yet)')
+        .replaceAll('{{message_count}}', String(messageCount))
         .replaceAll('{{story_txt}}', storyTxt);
     return appendLayer0PromptConstraints(prompt, settings, profile);
 }

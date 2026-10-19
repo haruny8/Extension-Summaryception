@@ -9,6 +9,18 @@ const NARRATIVE_OPEN_TAG = '<narrative>';
 const NARRATIVE_CLOSE_TAG = '</narrative>';
 
 /**
+ * Render one source-chat message in the structured format used by Layer 0.
+ * @param {number} index - Original chat-array index
+ * @param {'user' | 'assistant'} role
+ * @param {string} name - Resolved speaker display name
+ * @param {string} text - Message body
+ * @returns {string}
+ */
+export function formatSourceMessageBlock(index, role, name, text) {
+    return `<msg index="${index}" role="${role}">\n[${name}]:\n${text}\n</msg>`;
+}
+
+/**
  * Input is normalized for line-start tag drift first, so callers hand in raw
  * text.
  * @param {string} text - Raw summarizer output or stored snippet text

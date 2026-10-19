@@ -77,7 +77,6 @@ async function runManualSummarization($button, idleHtml, { run, notify, view }) 
     if (outcome !== undefined) {
         view.notices[outcome.status]?.(outcome);
         refreshPreview();
-        reloadAfterManualRun(outcome);
     }
 }
 
@@ -173,26 +172,6 @@ function showManualCacheWarning(settings) {
         TOAST_TITLE,
         { timeOut: 5000 },
     );
-}
-
-/**
- * @param {import('../core/run-outcome.js').ManualRunOutcome | undefined} outcome
- * @returns {void}
- */
-function reloadAfterManualRun(outcome) {
-    if (outcome?.status === 'completed') {
-        reloadPage();
-    }
-}
-
-/**
- * @returns {void}
- */
-export function reloadPage() {
-    const reload = globalThis.location?.reload;
-    if (typeof reload === 'function') {
-        reload.call(globalThis.location);
-    }
 }
 
 /**

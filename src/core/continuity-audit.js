@@ -102,7 +102,15 @@ async function runAudit(
     logAuditStart(turnCount, coverage.checkpointIndex);
 
     try {
-        const round = await dispatchAuditRound(storyTxt, contextStr, { dispatch, notify });
+        const round = await dispatchAuditRound(
+            storyTxt,
+            contextStr,
+            coverage.windowIndices.length,
+            {
+                dispatch,
+                notify,
+            },
+        );
         if (round.status !== 'ok') {
             return { status: round.status };
         }
@@ -192,11 +200,11 @@ function logAuditStart(turnCount, checkpointIndex) {
  * @param {import('./notify.js').NotifyAdapter} deps.notify
  * @returns {Promise<{ status: 'aborted' | 'failed' } | { status: 'ok', audit: { state: SummaryceptionContinuityState | null, sectionVerdicts: string[], flags: Record<string, Record<string, unknown>>, notesTruncated: number, recoveryTier: number | null }}>}
  */
-async function dispatchAuditRound(storyTxt, contextStr, { dispatch, notify }) {
+async function dispatchAuditRound(storyTxt, contextStr, messageCount, { dispatch, notify }) {
     const response = await dispatch({
         storyTxt,
         contextStr,
-        metadata: { kind: 'auditor' },
+        metadata: { kind: 'auditor', messageCount },
         notify,
     });
     if (response.status !== 'completed') {

@@ -114,6 +114,7 @@ interface ExtensionSettings {
     snippetsPerLayer: number;
     snippetsPerPromotion: number;
     injectionTemplate: string;
+    layer0SourceBudgetPrompt: string;
     summarizerSystemPromptPreset: string;
     summarizerSystemPrompt: string;
     summarizerUserPrompt: string;
@@ -289,6 +290,7 @@ interface SillyTavernContext {
     SlashCommandParser?: SlashCommandParser;
     SlashCommand?: SlashCommand;
     name1?: string;
+    name2?: string;
     eventSource?: SillyTavernEventSource;
     eventTypes?: Record<string, string>;
     event_types?: Record<string, string>;

@@ -9,7 +9,7 @@ import { registerMacro, setExtensionPrompt } from '../foundation/context.js';
 import { getChatStore } from '../foundation/chat-store.js';
 import { getEffectiveSettings } from '../foundation/settings.js';
 import { debug, isDebugEnabled, warn } from '../foundation/logger.js';
-import { buildInjection } from '../core/memory-injection.js';
+import { buildInjection, buildMacroInjectionText } from '../core/memory-injection.js';
 import { countTextTokens, formatTokenCount } from '../core/token-count.js';
 
 // ─── Injection via setExtensionPrompt ────────────────────────────────
@@ -93,7 +93,7 @@ export function createMemoryInjectionWriter() {
 
         memoryMacroRegistered = await registerMacro(
             MEMORY_MACRO_NAME,
-            () => buildEnabledMemoryText(),
+            () => buildEnabledMemoryMacroText(),
             'Returns the current Summaryception memory block.',
         );
         return memoryMacroRegistered;
@@ -150,6 +150,13 @@ function buildEnabledMemoryText(settings = getEffectiveSettings()) {
         return '';
     }
     return buildInjection(getChatStore().layers, settings).text;
+}
+
+function buildEnabledMemoryMacroText(settings = getEffectiveSettings()) {
+    if (!settings.enabled) {
+        return '';
+    }
+    return buildMacroInjectionText(getChatStore().layers, settings);
 }
 
 function mapMemoryPosition(position) {

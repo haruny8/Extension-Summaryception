@@ -44,6 +44,11 @@ describe('getLayer0SummaryTokenTarget', () => {
         const huge = getLayer0SummaryTokenTarget({ layer0SummaryTokenTarget: 100000 });
         const alsoHuge = getLayer0SummaryTokenTarget({ layer0SummaryTokenTarget: 500000 });
         expect(huge).toBe(alsoHuge);
+        expect(huge).toBe(4000);
+    });
+
+    it('allows a target at the new 4k maximum', () => {
+        expect(getLayer0SummaryTokenTarget({ layer0SummaryTokenTarget: 4000 })).toBe(4000);
     });
 
     it('rounds a valid mid-range value through', () => {
@@ -111,26 +116,30 @@ describe('appendLayer0PromptConstraints', () => {
         expect(result.trimEnd().endsWith(EXECUTION_TRIGGER_L0)).toBe(true);
     });
 
-    it('references both source-range numbers when sourceRange is a [start, end] pair', () => {
+    it('does not add a redundant source-range sentence when sourceRange is present', () => {
         const prompt = makeLayer0Prompt(EXECUTION_TRIGGER_L0);
         const result = appendLayer0PromptConstraints(
             prompt,
             settings,
             resolveCallProfile(settings, { kind: 'layer0', sourceRange: [12, 34] }),
         );
-        expect(result).toContain('12');
-        expect(result).toContain('34');
+        expect(result).not.toContain('This passage covers chat messages');
+        expect(result).not.toContain('current_date_time must be the scene time');
         expect(result.trimEnd().endsWith(EXECUTION_TRIGGER_L0)).toBe(true);
     });
 
-    it('adds no source-range line for an absent or too-short range but keeps trigger finality', () => {
+    it('uses the editable source-budget prompt and expands its dynamic macros', () => {
         const prompt = makeLayer0Prompt(EXECUTION_TRIGGER_L0);
         const result = appendLayer0PromptConstraints(
             prompt,
-            settings,
-            resolveCallProfile(settings, { kind: 'layer0', sourceRange: [5] }),
+            {
+                ...settings,
+                layer0SourceBudgetPrompt:
+                    'Keep it compact. Target {{target_tokens}} tokens and {{sentence_cap}} sentences.',
+            },
+            resolveCallProfile(settings, { kind: 'layer0' }),
         );
-        expect(result).not.toContain('covers chat messages');
+        expect(result).toContain('Keep it compact. Target 200 tokens and 7 sentences.');
         expect(result.trimEnd().endsWith(EXECUTION_TRIGGER_L0)).toBe(true);
     });
 

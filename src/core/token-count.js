@@ -154,7 +154,9 @@ export function formatCompactTokenCount(count) {
     const sign = normalized < 0 ? '-' : '';
     const absolute = Math.abs(normalized);
     if (absolute >= 1000) {
-        return `${sign}${Math.floor(absolute / 1000)}k`;
+        const thousands = Math.floor(absolute / 1000);
+        const halfThousand = absolute % 1000 >= 500;
+        return `${sign}${thousands}${halfThousand ? '.5' : ''}k`;
     }
     return `${normalized}`;
 }

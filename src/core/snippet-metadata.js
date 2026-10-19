@@ -190,8 +190,8 @@ export function formatSnippetAnchor(snippet = {}) {
     }
 
     const rangeText = `msgs ${range[0]}-${range[1]}`;
-    const current = meta.currentDateTime || UNKNOWN_TIME;
-    return `[${rangeText}; current ${current}]`;
+    const current = knownStateValue(meta.currentDateTime);
+    return current ? `[${rangeText}; current ${current}]` : `[${rangeText}]`;
 }
 
 /**

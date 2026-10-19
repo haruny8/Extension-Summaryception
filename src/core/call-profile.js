@@ -1,4 +1,15 @@
-import { defaultSettings, UI_MODES } from '../foundation/constants.js';
+import {
+    AUDITOR_PROMPT_PRESETS,
+    AUDITOR_SYSTEM_PROMPT_PRESETS,
+    defaultSettings,
+    PROMOTION_PROMPT_PRESETS,
+    PROMOTION_REPAIR_PROMPT_PRESETS,
+    PROMOTION_SYSTEM_PROMPT_PRESETS,
+    PROMPT_PRESETS,
+    SUMMARIZER_REPAIR_PROMPT_PRESETS,
+    SUMMARIZER_SYSTEM_PROMPT_PRESETS,
+    UI_MODES,
+} from '../foundation/constants.js';
 import {
     AUDITOR_CHAIN,
     CONNECTION_ROUTES,
@@ -65,6 +76,7 @@ const ROUTE_IDENTITY_KEYS = Object.freeze({
  * @property {string} [passageNames] - Comma-joined census of the passage's recurring character names, for the Refusal Guard shape signal
  * @property {number} [sourceTokensBefore] - Source text size before summarization
  * @property {boolean} [sourceTokensBeforeEstimated] - Whether sourceTokensBefore was estimated
+ * @property {number} [messageCount] - Source messages or summaries represented in the request
  * @property {number} [layerIndex] - Source layer for promotion calls
  * @property {number} [mergedSnippetCount] - Snippets merged for promotion calls
  * @property {number} [memoryTokensBefore] - Source memory size before promotion
@@ -86,6 +98,7 @@ const ROUTE_IDENTITY_KEYS = Object.freeze({
  * @property {string} [passageNames] - Comma-joined census of the passage's recurring character names, for the Refusal Guard shape signal
  * @property {number} [sourceTokensBefore] - Source text size before summarization
  * @property {boolean} [sourceTokensBeforeEstimated] - Whether sourceTokensBefore was estimated
+ * @property {number} [messageCount] - Source messages or summaries represented in the request
  * @property {number} [layerIndex] - Source layer for promotion calls
  * @property {number} [mergedSnippetCount] - Snippets merged for promotion calls
  * @property {number} [memoryTokensBefore] - Source memory size before promotion
@@ -121,10 +134,12 @@ export function resolveCallProfile(settings, call = {}) {
             systemPrompt: resolveSystemPrompt(settings, call.kind),
             userPromptTemplate: resolveUserPromptTemplate(settings, call),
             repairPromptTemplate: isLayer0Family
-                ? getStringSetting(
-                      settings.summarizerRepairPrompt,
-                      defaultSettings.summarizerRepairPrompt,
-                  )
+                ? resolvePromptSetting(settings, {
+                      presetKey: 'summarizerRepairPromptPreset',
+                      text: settings.summarizerRepairPrompt,
+                      presets: SUMMARIZER_REPAIR_PROMPT_PRESETS,
+                      fallback: defaultSettings.summarizerRepairPrompt,
+                  })
                 : '',
             label: buildCallLabel(call),
             healthBucket: isPromotion ? HEALTH_BUCKETS.l1plus : HEALTH_BUCKETS.layer0,
@@ -174,18 +189,27 @@ function resolveEasyContextLimit(settings) {
  */
 function resolveSystemPrompt(settings, kind) {
     if (kind === 'promotion') {
-        return getStringSetting(
-            settings.promotionSystemPrompt,
-            defaultSettings.promotionSystemPrompt,
-        );
+        return resolvePromptSetting(settings, {
+            presetKey: 'promotionSystemPromptPreset',
+            text: settings.promotionSystemPrompt,
+            presets: PROMOTION_SYSTEM_PROMPT_PRESETS,
+            fallback: defaultSettings.promotionSystemPrompt,
+        });
     }
     if (kind === 'auditor') {
-        return getStringSetting(settings.auditorSystemPrompt, defaultSettings.auditorSystemPrompt);
+        return resolvePromptSetting(settings, {
+            presetKey: 'auditorSystemPromptPreset',
+            text: settings.auditorSystemPrompt,
+            presets: AUDITOR_SYSTEM_PROMPT_PRESETS,
+            fallback: defaultSettings.auditorSystemPrompt,
+        });
     }
-    return getStringSetting(
-        settings.summarizerSystemPrompt,
-        defaultSettings.summarizerSystemPrompt,
-    );
+    return resolvePromptSetting(settings, {
+        presetKey: 'summarizerSystemPromptPreset',
+        text: settings.summarizerSystemPrompt,
+        presets: SUMMARIZER_SYSTEM_PROMPT_PRESETS,
+        fallback: defaultSettings.summarizerSystemPrompt,
+    });
 }
 
 /**
@@ -196,16 +220,45 @@ function resolveSystemPrompt(settings, kind) {
 function resolveUserPromptTemplate(settings, call) {
     if (call.kind === 'promotion') {
         return call.promotionRepair
-            ? getStringSetting(
-                  settings.promotionRepairPrompt,
-                  defaultSettings.promotionRepairPrompt,
-              )
-            : getStringSetting(settings.promotionUserPrompt, defaultSettings.promotionUserPrompt);
+            ? resolvePromptSetting(settings, {
+                  presetKey: 'promotionRepairPromptPreset',
+                  text: settings.promotionRepairPrompt,
+                  presets: PROMOTION_REPAIR_PROMPT_PRESETS,
+                  fallback: defaultSettings.promotionRepairPrompt,
+              })
+            : resolvePromptSetting(settings, {
+                  presetKey: 'promotionPromptPreset',
+                  text: settings.promotionUserPrompt,
+                  presets: PROMOTION_PROMPT_PRESETS,
+                  fallback: defaultSettings.promotionUserPrompt,
+              });
     }
     if (call.kind === 'auditor') {
-        return getStringSetting(settings.auditorUserPrompt, defaultSettings.auditorUserPrompt);
+        return resolvePromptSetting(settings, {
+            presetKey: 'auditorPromptPreset',
+            text: settings.auditorUserPrompt,
+            presets: AUDITOR_PROMPT_PRESETS,
+            fallback: defaultSettings.auditorUserPrompt,
+        });
     }
-    return getStringSetting(settings.summarizerUserPrompt, defaultSettings.summarizerUserPrompt);
+    return resolvePromptSetting(settings, {
+        presetKey: 'promptPreset',
+        text: settings.summarizerUserPrompt,
+        presets: PROMPT_PRESETS,
+        fallback: defaultSettings.summarizerUserPrompt,
+    });
+}
+
+/**
+ * @param {ExtensionSettings} settings
+ * @param {{ presetKey: string, text: unknown, presets: Record<string, string | null>, fallback: string }} prompt
+ * @returns {string}
+ */
+function resolvePromptSetting(settings, prompt) {
+    if (settings[prompt.presetKey] === 'custom') {
+        return getStringSetting(prompt.text, prompt.fallback);
+    }
+    return getStringSetting(prompt.presets[settings[prompt.presetKey]], prompt.fallback);
 }
 
 /**
@@ -268,6 +321,7 @@ function buildProvenance(call) {
         'passageNames',
         'sourceTokensBefore',
         'sourceTokensBeforeEstimated',
+        'messageCount',
         'layerIndex',
         'mergedSnippetCount',
         'memoryTokensBefore',

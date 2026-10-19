@@ -5,6 +5,7 @@ import {
     makeMessage,
     makeSizedChat,
     makeSummaryStore,
+    messageRangeTokens,
     messageLineTokens,
     windowSettings,
 } from './test-helpers.js';
@@ -12,7 +13,7 @@ import {
 describe('buildChatWindowPlan', () => {
     it('stays idle below Recent + Queued and is ready at equality', async () => {
         const chat = makeSizedChat(2, { userLength: 40, assistantLength: 40 });
-        const total = 2 * messageLineTokens(true, 40) + 2 * messageLineTokens(false, 40);
+        const total = messageRangeTokens(chat);
         const idle = await buildChatWindowPlan(
             chat,
             makeSummaryStore(),
@@ -36,7 +37,7 @@ describe('buildChatWindowPlan', () => {
 
     it('keeps complete messages in A and ends B inside its budget', async () => {
         const chat = makeSizedChat(3, { userLength: 40, assistantLength: 60 });
-        const verbatimTokenBudget = messageLineTokens(false, 60) + 1;
+        const verbatimTokenBudget = messageLineTokens(false, 60, 5) + 1;
         const plan = await buildChatWindowPlan(
             chat,
             makeSummaryStore(),
@@ -152,8 +153,6 @@ describe('buildChatWindowPlan', () => {
             makeSummaryStore(),
             windowSettings({ verbatimTokenBudget: 10000, queuedTokenBudget: 10000 }),
         );
-        expect(plan.liveTokens).toBe(
-            2 * messageLineTokens(true, 40) + 2 * messageLineTokens(false, 40),
-        );
+        expect(plan.liveTokens).toBe(messageRangeTokens(chat));
     });
 });

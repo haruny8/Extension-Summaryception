@@ -54,6 +54,14 @@ export function getName1() {
 }
 
 /**
+ * Character display name for the active chat.
+ * @returns {string}
+ */
+export function getName2() {
+    return getContext().name2 || 'Assistant';
+}
+
+/**
  * @returns {void}
  */
 export function saveSettingsDebounced() {

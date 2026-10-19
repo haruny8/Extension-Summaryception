@@ -336,6 +336,7 @@ async function runPassage({
             metadata: {
                 kind: 'layer0',
                 sourceRange: snapshot.sourceRange,
+                messageCount: snapshot.passageStats.messageCount,
                 regexStats: snapshot.passageStats,
                 passageNames: buildPassageNameCensus(snapshot.passageText).join(', '),
             },

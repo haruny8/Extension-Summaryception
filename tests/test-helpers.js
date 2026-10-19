@@ -123,11 +123,31 @@ export function makeSizedChat(turnCount, { userLength = 100, assistantLength = 1
 
 /**
  * Predict a message's token count under the default String-length test tokenizer.
- * Mirrors the "Player: "/"Assistant: " line format used by the planner modules.
- * This is the single coupling point if speaker names ever change.
+ * Mirrors the tagged message format used in Layer 0 passages.
  */
-export function messageLineTokens(isUser, mesLength) {
-    return (isUser ? 'Player: ' : 'Assistant: ').length + mesLength;
+export function messageLineTokens(isUser, mesLength, index = 0, name = 'Assistant') {
+    const role = isUser ? 'user' : 'assistant';
+    return `<msg index="${index}" role="${role}">\n[${name}]:\n${'x'.repeat(mesLength)}\n</msg>`
+        .length;
+}
+
+/** Predict the rendered token count for an inclusive chat-index range. */
+export function messageRangeTokens(chat, startIndex = 0, endIndex = chat.length - 1) {
+    return chat.slice(startIndex, endIndex + 1).reduce((total, message, offset) => {
+        if (
+            !message ||
+            message.is_system ||
+            message.is_hidden ||
+            message.extra?.type ||
+            !String(message.mes || '').trim()
+        ) {
+            return total;
+        }
+        const index = startIndex + offset;
+        const textLength = String(message.mes || '').trim().length;
+        const name = message.name || (message.is_user ? 'Player1' : 'Assistant');
+        return total + messageLineTokens(message.is_user, textLength, index, name);
+    }, 0);
 }
 
 /** Baseline summarization settings; every preset helper overrides it. */

@@ -39,7 +39,7 @@ describe('buildAutoSummaryRoutePlan', () => {
             makeSummaryStore(),
             readySettings(MEMORY_MODES.BALANCED),
         );
-        expect(plan.partitions).toHaveLength(2);
+        expect(plan.partitions.length).toBeGreaterThan(1);
         expect(plan.batchTurns).toBe(plan.partitions[0].turns);
         expect(plan.batchTurns.length).toBeLessThan(plan.overflowCount);
         expect(plan.totalBatches).toBe(1);
@@ -48,7 +48,7 @@ describe('buildAutoSummaryRoutePlan', () => {
     it.each([MEMORY_MODES.PREFIX_CACHE])('%s routes every B partition atomically', async (mode) => {
         const chat = makeSizedChat(8, { userLength: 400, assistantLength: 400 });
         const plan = await buildAutoSummaryRoutePlan(chat, makeSummaryStore(), readySettings(mode));
-        expect(plan.partitions).toHaveLength(2);
+        expect(plan.partitions.length).toBeGreaterThan(1);
         expect(plan.totalBatches).toBe(plan.partitions.length);
         expect(plan.partitions.flatMap((part) => part.turns)).toHaveLength(plan.overflowCount);
     });

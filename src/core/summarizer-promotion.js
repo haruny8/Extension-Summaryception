@@ -116,6 +116,7 @@ async function prepareLayerPromotion({
     const promotionMetadata = {
         kind: 'promotion',
         layerIndex,
+        messageCount: toMerge.length,
         mergedSnippetCount: toMerge.length,
         memoryTokensBefore: memoryTokensBefore.count,
         memoryTokensBeforeEstimated: memoryTokensBefore.estimated,

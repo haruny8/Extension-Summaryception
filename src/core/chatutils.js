@@ -1,7 +1,9 @@
 import { getChatStore } from '../foundation/chat-store.js';
+import { getName1, getName2 } from '../foundation/context.js';
 import { getEffectiveSettings } from '../foundation/settings.js';
 import { applyRegexToMessage } from './regex-proxy.js';
 import { buildMemoryBody } from './memory-injection.js';
+import { formatSourceMessageBlock } from './structural-headers.js';
 import { addBudgetStats, countMessageTokens, createBudgetStats } from './token-count.js';
 
 // ─── Assistant Turn Utilities ────────────────────────────────────────
@@ -192,27 +194,31 @@ export function getPromptDepthsByChatIndex(chat) {
 /**
  * Format a chat message as the summarizer sees it.
  * @param {ChatMessage} message
+ * @param {number} index
  * @param {string} text
  * @returns {string}
  */
-export function formatMessageSpeakerLine(message, text) {
-    return `${message.is_user ? 'Player' : 'Assistant'}: ${text}`;
+export function formatMessageSpeakerLine(message, index, text) {
+    const role = message.is_user ? 'user' : 'assistant';
+    const name = message.name || (message.is_user ? getName1() : getName2());
+    return formatSourceMessageBlock(index, role, name, text);
 }
 
 /**
  * Render one chat message into speaker lines, with and without regex scripts.
  * @param {ChatMessage} message
+ * @param {number} index
  * @param {number | undefined} depth
  * @param {{ applyRegexScripts?: boolean }} [options]
  * @returns {Promise<{ rawText: string, finalText: string, rawLine: string, finalLine: string, changed: boolean }>}
  */
-async function renderMessageLines(message, depth, { applyRegexScripts } = {}) {
+async function renderMessageLines(message, index, depth, { applyRegexScripts } = {}) {
     const rawText = String(message.mes || '').trim();
     const finalText = applyRegexScripts
         ? await applyRegexToMessage(rawText, Boolean(message.is_user), depth)
         : rawText;
-    const rawLine = formatMessageSpeakerLine(message, rawText);
-    const finalLine = formatMessageSpeakerLine(message, finalText);
+    const rawLine = formatMessageSpeakerLine(message, index, rawText);
+    const finalLine = formatMessageSpeakerLine(message, index, finalText);
 
     return { rawText, finalText, rawLine, finalLine, changed: rawLine !== finalLine };
 }
@@ -249,7 +255,7 @@ export async function* countedChatMessages(
             continue;
         }
         const depth = promptDepths.get(index);
-        const { rawLine, finalLine, changed } = await renderMessageLines(message, depth, {
+        const { rawLine, finalLine, changed } = await renderMessageLines(message, index, depth, {
             applyRegexScripts: settings.applyRegexScripts,
         });
         const stats = { ...(await countMessageTokens(message, rawLine, finalLine)), changed };
@@ -267,6 +273,7 @@ export async function* countedChatMessages(
  * @property {boolean} finalTokensEstimated - Whether finalTokens came from fallback estimation
  * @property {boolean} savedTokensEstimated - Whether savedTokens includes fallback estimation
  * @property {number} changedMessageCount - Number of messages changed by regex scripts
+ * @property {number} messageCount - Number of messages included in the passage
  */
 
 /**
@@ -284,7 +291,11 @@ export async function* countedChatMessages(
  * @returns {Promise<PassageWithStats>}
  */
 export async function buildPassageFromRangeWithStats(chat, startIdx, endIdx) {
-    const accumulator = { ...createBudgetStats(), finalLines: /** @type {string[]} */ ([]) };
+    const accumulator = {
+        ...createBudgetStats(),
+        messageCount: 0,
+        finalLines: /** @type {string[]} */ ([]),
+    };
 
     if (endIdx >= startIdx) {
         for await (const { stats, finalLine } of countedChatMessages(
@@ -296,6 +307,7 @@ export async function buildPassageFromRangeWithStats(chat, startIdx, endIdx) {
         )) {
             accumulator.finalLines.push(finalLine);
             addBudgetStats(accumulator, stats);
+            accumulator.messageCount = (accumulator.messageCount || 0) + 1;
         }
     }
 

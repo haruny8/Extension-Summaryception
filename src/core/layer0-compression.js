@@ -1,4 +1,4 @@
-import { defaultSettings } from '../foundation/constants.js';
+import { defaultSettings, SLIDER_LIMITS } from '../foundation/constants.js';
 import { debug } from '../foundation/logger.js';
 import {
     buildRepairDiagnostics,
@@ -24,9 +24,7 @@ import {
 } from './token-budget.js';
 import { countTextTokens } from './token-count.js';
 
-const MIN_LAYER0_TARGET_TOKENS = 80;
 const MIN_LAYER0_OUTPUT_TOKENS = 50;
-const MAX_LAYER0_TARGET_TOKENS = 700;
 
 /** After the close tag only whitespace or one scene-time key line is legal. */
 const SCENE_TIME_TAIL_LINE_RE = /^[^\S\r\n]*current_date_time[^\S\r\n]*[:=][^\S\r\n]*\S/i;
@@ -40,7 +38,8 @@ export function getLayer0SummaryTokenTarget(settings = {}) {
     const parsed = Number(settings.layer0SummaryTokenTarget);
     const fallback = defaultSettings.layer0SummaryTokenTarget;
     const value = Number.isFinite(parsed) ? Math.round(parsed) : fallback;
-    return Math.min(MAX_LAYER0_TARGET_TOKENS, Math.max(MIN_LAYER0_TARGET_TOKENS, value));
+    const { MIN, MAX } = SLIDER_LIMITS.layer0SummaryTokenTarget;
+    return Math.min(MAX, Math.max(MIN, value));
 }
 
 /**
@@ -292,24 +291,14 @@ export function appendLayer0PromptConstraints(prompt, settings, profile) {
     }
 
     const insert = [
-        buildLayer0BudgetHint({ targetTokens: sizeGuard.target }),
-        buildLayer0SourceRangeLine(profile.provenance),
+        buildLayer0BudgetHint({
+            targetTokens: sizeGuard.target,
+            template: settings.layer0SourceBudgetPrompt,
+        }),
     ]
         .filter(Boolean)
         .join('\n\n');
     return insertBeforeTrigger(prompt, insert, EXECUTION_TRIGGER_L0);
-}
-
-function buildLayer0SourceRangeLine(metadata = {}) {
-    const range = metadata.sourceRange;
-    if (!Array.isArray(range) || range.length < 2) {
-        return '';
-    }
-    return (
-        `This passage covers chat messages ${range[0]}-${range[1]}. ` +
-        `Message ${range[1]} is the latest summarized message. ` +
-        'current_date_time must be the scene time at the end of that message.\n'
-    );
 }
 
 /**

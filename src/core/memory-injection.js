@@ -65,6 +65,28 @@ export function buildInjection(layers, settings = getEffectiveSettings()) {
 }
 
 /**
+ * Build the memory text exposed through the custom prompt macro. The macro
+ * carries the summaries but does not need the direct-injection chronology
+ * label or its explanatory template line.
+ * @param {Array<Array<{ text: string }>>} layers
+ * @param {ExtensionSettings} [settings]
+ * @returns {string}
+ */
+export function buildMacroInjectionText(layers, settings = getEffectiveSettings()) {
+    const { chronologyText } = buildMemoryInjectionParts(layers, { compactAnchors: true });
+    if (!chronologyText) {
+        return '';
+    }
+
+    const template = String(settings?.injectionTemplate || '{{summary}}')
+        .split('\n')
+        .filter((line) => !line.includes('[CHRONOLOGY]'))
+        .join('\n');
+
+    return renderInjectionTemplate({ memoryText: chronologyText }, { injectionTemplate: template });
+}
+
+/**
  * Count the text it was handed. Taking the injection rather than the layers is
  * what keeps the displayed cost and the injected prompt the same string.
  * @param {MemoryInjection} injection
@@ -100,7 +122,7 @@ export function buildMemoryInjectionParts(layers, { compactAnchors = false } = {
     }
 
     const chronologyParts = collectChronologyParts(layers, compactAnchors);
-    const chronologyText = chronologyParts.map((part) => part.text).join('\n');
+    const chronologyText = chronologyParts.map((part) => part.text).join('\n\n');
     const memoryText = chronologyText ? `[CHRONOLOGY]\n${chronologyText}` : '';
 
     return { chronologyParts, chronologyText, memoryText };
@@ -136,7 +158,7 @@ function collectChronologyParts(layers, compactAnchors) {
                 ),
             )
             .filter(Boolean)
-            .join('\n');
+            .join('\n\n');
         if (text) {
             parts.push({ layerIndex: i, text });
         }

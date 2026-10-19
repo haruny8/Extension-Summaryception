@@ -6,7 +6,7 @@ import {
     makeMessage,
     makeSizedChat,
     makeSummarySettings,
-    messageLineTokens,
+    messageRangeTokens,
 } from './test-helpers.js';
 
 function turnsAt(chat, indices) {
@@ -54,9 +54,7 @@ describe('buildLayer0Partitions', () => {
         expect(partitions[0].sourceStartIdx).toBe(0);
         expect(partitions[0].sourceEndIdx).toBe(3);
         expect(partitions[0].turns.length).toBe(2);
-        expect(partitions[0].stats.finalTokens).toBe(
-            2 * messageLineTokens(true, 500) + 2 * messageLineTokens(false, 2000),
-        );
+        expect(partitions[0].stats.finalTokens).toBe(messageRangeTokens(chat));
     });
 
     it('splits oversized sources into balanced partitions on turn boundaries', async () => {
@@ -67,12 +65,13 @@ describe('buildLayer0Partitions', () => {
             assistantTurns: turnsAt(chat, [1, 3, 5, 7, 9, 11]),
             settings: makeSummarySettings({ minSummaryBudget: 6000, maxL0SourceTokens: 24000 }),
         });
-        const turnTokens = messageLineTokens(true, 500) + messageLineTokens(false, 2000);
 
         expect(partitions.length).toBe(3);
         for (const partition of partitions) {
             expect(partition.turns.length).toBe(2);
-            expect(partition.stats.finalTokens).toBe(2 * turnTokens);
+            expect(partition.stats.finalTokens).toBe(
+                messageRangeTokens(chat, partition.sourceStartIdx, partition.sourceEndIdx),
+            );
             expect(partition.sourceEndIdx).toBe(partition.turns[partition.turns.length - 1].index);
         }
         expect(partitions[0].sourceStartIdx).toBe(0);
@@ -166,7 +165,6 @@ describe('buildLayer0Partitions', () => {
 
     it('caps partitions at maxSummaryTurns when turns are short', async () => {
         const chat = makeSizedChat(12, { userLength: 100, assistantLength: 100 });
-        const turnTokens = messageLineTokens(true, 100) + messageLineTokens(false, 100);
         const partitions = await buildLayer0Partitions({
             chat,
             sourceStartIdx: 0,
@@ -181,7 +179,9 @@ describe('buildLayer0Partitions', () => {
         expect(partitions.length).toBe(4);
         for (const partition of partitions) {
             expect(partition.turns.length).toBe(3);
-            expect(partition.stats.finalTokens).toBe(3 * turnTokens);
+            expect(partition.stats.finalTokens).toBe(
+                messageRangeTokens(chat, partition.sourceStartIdx, partition.sourceEndIdx),
+            );
         }
     });
 
@@ -200,11 +200,7 @@ describe('buildLayer0Partitions', () => {
 
         expect(partitions.length).toBe(1);
         expect(partitions[0].sourceEndIdx).toBe(4);
-        expect(partitions[0].stats.finalTokens).toBe(
-            2 * messageLineTokens(true, 500) +
-                2 * messageLineTokens(false, 2000) +
-                messageLineTokens(true, 500),
-        );
+        expect(partitions[0].stats.finalTokens).toBe(messageRangeTokens(chat));
     });
 });
 
@@ -220,6 +216,6 @@ describe('countSourceRangeTokens', () => {
 
         const stats = await countSourceRangeTokens(chat, 0, 3, makeSummarySettings());
 
-        expect(stats.finalTokens).toBe(messageLineTokens(false, 100));
+        expect(stats.finalTokens).toBe(messageRangeTokens(chat, 0, 0));
     });
 });

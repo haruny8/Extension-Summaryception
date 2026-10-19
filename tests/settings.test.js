@@ -166,7 +166,7 @@ describe('resetSettingsToDefaults', () => {
         expect(s).toMatchObject(MEMORY_MODE_PRESETS[MEMORY_MODES.PREFIX_CACHE]);
     });
 
-    it('resets non-custom prompt profiles and keeps custom profiles untouched', () => {
+    it('preserves saved prompt drafts and keeps custom profile selections', () => {
         const s = settingsFor();
         s.promptPreset = 'narrative';
         s.summarizerUserPrompt = 'edited user prompt';
@@ -176,7 +176,7 @@ describe('resetSettingsToDefaults', () => {
         resetSettingsToDefaults();
 
         expect(s.promptPreset).toBe(defaultSettings.promptPreset);
-        expect(s.summarizerUserPrompt).toBe(defaultSettings.summarizerUserPrompt);
+        expect(s.summarizerUserPrompt).toBe('edited user prompt');
         expect(s.promotionSystemPromptPreset).toBe('custom');
         expect(s.promotionSystemPrompt).toBe('kept custom text');
     });

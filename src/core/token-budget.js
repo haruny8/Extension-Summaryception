@@ -78,21 +78,21 @@ export function buildSizeConstraintsBlock({ wrapperTag, targetLine, repairLine =
  * Build the Layer 0 model-countable source budget block.
  * @param {object} p
  * @param {number} p.targetTokens
+ * @param {string} [p.template]
  * @returns {string}
  */
-export function buildLayer0BudgetHint({ targetTokens }) {
+export function buildLayer0BudgetHint({
+    targetTokens,
+    template = defaultSettings.layer0SourceBudgetPrompt,
+}) {
     const sentenceCap = computeSentenceCap('l0', targetTokens);
-    return [
-        '<summaryception_source_budget>',
-        'Compress the source passage hard.',
-        buildSizeTargetLine({
-            label: '<narrative>',
-            verb: 'write',
-            cap: sentenceCap,
-            unit: 'sentences',
-        }),
-        '</summaryception_source_budget>',
-    ].join('\n');
+    const resolvedTarget = Number.isFinite(Number(targetTokens))
+        ? Math.round(Number(targetTokens))
+        : defaultSettings.layer0SummaryTokenTarget;
+    const body = String(template ?? '')
+        .replaceAll('{{sentence_cap}}', String(sentenceCap))
+        .replaceAll('{{target_tokens}}', String(resolvedTarget));
+    return ['<summaryception_source_budget>', body, '</summaryception_source_budget>'].join('\n');
 }
 
 /**

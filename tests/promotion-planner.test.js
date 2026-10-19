@@ -20,8 +20,15 @@ function snip(text) {
 
 function totalTokens(layers) {
     const active = layers.filter((layer) => Array.isArray(layer) && layer.length > 0);
-    return `${CHRONOLOGY_HEADER}${active.map((layer) => layer.map((s) => s.text.trim()).join('\n')).join('\n')}`
+    return `${CHRONOLOGY_HEADER}${active.map((layer) => layer.map((s) => s.text.trim()).join('\n\n')).join('\n\n')}`
         .length;
+}
+
+function layerTokens(layers, layerIndex) {
+    const layer = layers[layerIndex];
+    return Array.isArray(layer)
+        ? layer.map((snippet) => snippet.text.trim()).join('\n\n').length
+        : 0;
 }
 
 describe('buildPromotionPlan', () => {
@@ -36,17 +43,17 @@ describe('buildPromotionPlan', () => {
                 {
                     layerIndex: 0,
                     quota: 6000,
-                    tokens: 81,
+                    tokens: layerTokens([shallow, deep], 0),
                     count: 2,
-                    totalTokens: 135,
+                    totalTokens: totalTokens([shallow, deep]),
                     tokenBudgetExceeded: false,
                 },
                 {
                     layerIndex: 1,
                     quota: 3000,
-                    tokens: 40,
+                    tokens: layerTokens([shallow, deep], 1),
                     count: 1,
-                    totalTokens: 135,
+                    totalTokens: totalTokens([shallow, deep]),
                     tokenBudgetExceeded: false,
                 },
             ],
@@ -54,7 +61,7 @@ describe('buildPromotionPlan', () => {
             candidate: null,
             retentionFloorViolated: false,
         });
-        expect(totalTokens([shallow, deep])).toBe(135);
+        expect(totalTokens([shallow, deep])).toBe(137);
     });
 
     it('drops the Layer 0 quota and skips empty layers when deep layers are active', async () => {
@@ -68,17 +75,17 @@ describe('buildPromotionPlan', () => {
                 {
                     layerIndex: 0,
                     quota: 5000,
-                    tokens: 40,
+                    tokens: layerTokens([shallow, [], deepest], 0),
                     count: 1,
-                    totalTokens: 94,
+                    totalTokens: totalTokens([shallow, [], deepest]),
                     tokenBudgetExceeded: false,
                 },
                 {
                     layerIndex: 2,
                     quota: 2000,
-                    tokens: 40,
+                    tokens: layerTokens([shallow, [], deepest], 2),
                     count: 1,
-                    totalTokens: 94,
+                    totalTokens: totalTokens([shallow, [], deepest]),
                     tokenBudgetExceeded: false,
                 },
             ],
@@ -86,7 +93,7 @@ describe('buildPromotionPlan', () => {
             candidate: null,
             retentionFloorViolated: false,
         });
-        expect(totalTokens([shallow, [], deepest])).toBe(94);
+        expect(totalTokens([shallow, [], deepest])).toBe(95);
     });
 
     it('returns no quotas for an empty store', async () => {
@@ -136,22 +143,27 @@ describe('buildPromotionPlan', () => {
                 {
                     layerIndex: 0,
                     quota: 6000,
-                    tokens: 5024,
+                    tokens: layerTokens([layer0, layer1], 0),
                     count: 25,
-                    totalTokens: 15042,
+                    totalTokens: totalTokens([layer0, layer1]),
                     tokenBudgetExceeded: true,
                 },
                 {
                     layerIndex: 1,
                     quota: 3000,
-                    tokens: 10004,
+                    tokens: layerTokens([layer0, layer1], 1),
                     count: 5,
-                    totalTokens: 15042,
+                    totalTokens: totalTokens([layer0, layer1]),
                     tokenBudgetExceeded: true,
                 },
             ],
             mergeCount: 3,
-            candidate: { layerIndex: 0, quota: 6000, tokens: 5024, count: 25 },
+            candidate: {
+                layerIndex: 0,
+                quota: 6000,
+                tokens: layerTokens([layer0, layer1], 0),
+                count: 25,
+            },
             retentionFloorViolated: false,
         });
     });
@@ -167,22 +179,27 @@ describe('buildPromotionPlan', () => {
                 {
                     layerIndex: 0,
                     quota: 6000,
-                    tokens: 401,
+                    tokens: layerTokens([layer0, layer1], 0),
                     count: 2,
-                    totalTokens: 10419,
+                    totalTokens: totalTokens([layer0, layer1]),
                     tokenBudgetExceeded: true,
                 },
                 {
                     layerIndex: 1,
                     quota: 3000,
-                    tokens: 10004,
+                    tokens: layerTokens([layer0, layer1], 1),
                     count: 5,
-                    totalTokens: 10419,
+                    totalTokens: totalTokens([layer0, layer1]),
                     tokenBudgetExceeded: true,
                 },
             ],
             mergeCount: 3,
-            candidate: { layerIndex: 1, quota: 3000, tokens: 10004, count: 5 },
+            candidate: {
+                layerIndex: 1,
+                quota: 3000,
+                tokens: layerTokens([layer0, layer1], 1),
+                count: 5,
+            },
             retentionFloorViolated: false,
         });
     });
@@ -218,14 +235,19 @@ describe('buildPromotionPlan', () => {
                 {
                     layerIndex: 0,
                     quota: 24,
-                    tokens: 1119,
+                    tokens: layerTokens([layer0], 0),
                     count: 4,
-                    totalTokens: 1132,
+                    totalTokens: totalTokens([layer0]),
                     tokenBudgetExceeded: true,
                 },
             ],
             mergeCount: 3,
-            candidate: { layerIndex: 0, quota: 24, tokens: 1119, count: 4 },
+            candidate: {
+                layerIndex: 0,
+                quota: 24,
+                tokens: layerTokens([layer0], 0),
+                count: 4,
+            },
             retentionFloorViolated: false,
         });
     });
@@ -241,9 +263,9 @@ describe('buildPromotionPlan', () => {
                 {
                     layerIndex: 0,
                     quota: 24,
-                    tokens: 559,
+                    tokens: layerTokens([layer0], 0),
                     count: 2,
-                    totalTokens: 572,
+                    totalTokens: totalTokens([layer0]),
                     tokenBudgetExceeded: true,
                 },
             ],
@@ -269,7 +291,12 @@ describe('buildPromotionPlan', () => {
             makeSummaryStore({ layers: [breaching] }),
             makeSummarySettings({ memoryTokenBudget: 10000, snippetsPerLayer: 4 }),
         );
-        expect(breached.candidate).toEqual({ layerIndex: 0, quota: 6000, tokens: 1004, count: 5 });
+        expect(breached.candidate).toEqual({
+            layerIndex: 0,
+            quota: 6000,
+            tokens: layerTokens([breaching], 0),
+            count: 5,
+        });
         expect(breached.retentionFloorViolated).toBe(true);
     });
 });

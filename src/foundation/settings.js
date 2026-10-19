@@ -1,15 +1,7 @@
 import {
-    AUDITOR_PROMPT_PRESETS,
-    AUDITOR_SYSTEM_PROMPT_PRESETS,
     MEMORY_MODE_PRESETS,
     MODULE_NAME,
-    PROMOTION_PROMPT_PRESETS,
-    PROMOTION_REPAIR_PROMPT_PRESETS,
-    PROMOTION_SYSTEM_PROMPT_PRESETS,
-    PROMPT_PRESETS,
     PROMPT_SETTING_KEYS,
-    SUMMARIZER_REPAIR_PROMPT_PRESETS,
-    SUMMARIZER_SYSTEM_PROMPT_PRESETS,
     defaultSettings,
 } from './constants.js';
 import { getExtensionSettings, saveSettingsDebounced } from './context.js';
@@ -87,19 +79,8 @@ const RESET_PRESERVED_KEYS = new Set([
     'debugMode',
 ]);
 
-const PROMPT_PRESET_TABLES = Object.freeze({
-    summarizerSystemPromptPreset: SUMMARIZER_SYSTEM_PROMPT_PRESETS,
-    promptPreset: PROMPT_PRESETS,
-    summarizerRepairPromptPreset: SUMMARIZER_REPAIR_PROMPT_PRESETS,
-    promotionSystemPromptPreset: PROMOTION_SYSTEM_PROMPT_PRESETS,
-    promotionPromptPreset: PROMOTION_PROMPT_PRESETS,
-    promotionRepairPromptPreset: PROMOTION_REPAIR_PROMPT_PRESETS,
-    auditorSystemPromptPreset: AUDITOR_SYSTEM_PROMPT_PRESETS,
-    auditorPromptPreset: AUDITOR_PROMPT_PRESETS,
-});
-
 /**
- * Custom preset selections keep their edited text.
+ * Prompt text remains the user's saved draft regardless of the active preset.
  * @param {ExtensionSettings} settings - Settings object mutated in place.
  * @returns {void}
  */
@@ -110,14 +91,12 @@ function resetPromptValues(settings) {
     const settingsRecord = /** @type {Record<string, unknown>} */ (
         /** @type {unknown} */ (settings)
     );
-    for (const { presetKey, settingKey } of PROMPT_SETTING_KEYS) {
-        if (settingsRecord[presetKey] === 'custom') {
-            continue;
-        }
+    for (const { presetKey } of PROMPT_SETTING_KEYS) {
+        const hasCustomSelection = settingsRecord[presetKey] === 'custom';
         const defaultPreset = defaultsRecord[presetKey];
-        settingsRecord[presetKey] = defaultPreset;
-        settingsRecord[settingKey] =
-            PROMPT_PRESET_TABLES[presetKey][defaultPreset] || defaultsRecord[settingKey];
+        if (!hasCustomSelection) {
+            settingsRecord[presetKey] = defaultPreset;
+        }
     }
 }
 

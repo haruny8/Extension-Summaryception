@@ -95,13 +95,13 @@ Anti-omniscient verification: if a character was not present when an event happe
 ### Default auditor user prompt
 
 ```text
-<player_name>
-{{player_name}}
-</player_name>
-
 <prior_continuity_state>
 {{context_str}}
 </prior_continuity_state>
+
+<message_count>
+{{message_count}}
+</message_count>
 
 <latest_exchanges>
 {{story_txt}}

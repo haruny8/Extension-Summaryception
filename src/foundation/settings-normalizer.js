@@ -301,20 +301,18 @@ function normalizePromptSettings(settings) {
             continue;
         }
 
-        const promptText = settingsRecord[binding.settingKey];
-        // Blank custom text counts as no custom text; it would inject an
-        // empty prompt slot.
-        if (isCustom && typeof promptText === 'string' && promptText.trim()) {
-            continue;
-        }
+        if (isCustom) {
+            const promptText = settingsRecord[binding.settingKey];
+            // Blank custom text counts as no custom text; it would inject an
+            // empty prompt slot.
+            if (typeof promptText === 'string' && promptText.trim()) {
+                continue;
+            }
 
-        if (settingsRecord[binding.presetKey] !== defaults[binding.presetKey]) {
-            settingsRecord[binding.presetKey] = defaults[binding.presetKey];
-            changed = true;
-        }
-        if (settingsRecord[binding.settingKey] !== defaults[binding.settingKey]) {
-            settingsRecord[binding.settingKey] = defaults[binding.settingKey];
-            changed = true;
+            if (settingsRecord[binding.presetKey] !== defaults[binding.presetKey]) {
+                settingsRecord[binding.presetKey] = defaults[binding.presetKey];
+                changed = true;
+            }
         }
     }
     return changed;

@@ -23,8 +23,12 @@ describe('prompt profile bindings', () => {
         delete globalThis.document;
     });
 
-    it('fills the textarea and persists both settings keys when a valid preset is selected', () => {
+    it('shows the selected preset without replacing the saved custom prompt', () => {
         bindPromptProfiles();
+
+        const textarea = dom.element('#sc_summarizer_user_prompt');
+        textarea.val('my saved custom prompt');
+        dom.trigger('input', '#sc_summarizer_user_prompt', textarea);
 
         const select = dom.element('#sc_prompt_preset');
         select.val('narrative');
@@ -32,9 +36,15 @@ describe('prompt profile bindings', () => {
 
         const s = getSettings();
         expect(s.promptPreset).toBe('narrative');
-        expect(s.summarizerUserPrompt).toBe(PROMPT_PRESETS.narrative);
-        expect(dom.element('#sc_summarizer_user_prompt').val()).toBe(PROMPT_PRESETS.narrative);
-        expect(saveSettingsDebounced).toHaveBeenCalledTimes(1);
+        expect(s.summarizerUserPrompt).toBe('my saved custom prompt');
+        expect(textarea.val()).toBe(PROMPT_PRESETS.narrative);
+
+        select.val('custom');
+        dom.trigger('change', '#sc_prompt_preset', select);
+
+        expect(s.promptPreset).toBe('custom');
+        expect(textarea.val()).toBe('my saved custom prompt');
+        expect(saveSettingsDebounced).toHaveBeenCalledTimes(3);
     });
 
     it('snaps an unknown preset value back to the field default without writing settings', () => {

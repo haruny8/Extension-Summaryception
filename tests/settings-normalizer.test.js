@@ -122,4 +122,14 @@ describe('normalizeSettings', () => {
         }).settings;
         expect(budget.minSummaryBudget).toBeLessThanOrEqual(budget.maxL0SourceTokens);
     });
+
+    it('preserves custom prompt text while a valid default preset is selected', () => {
+        const { settings, changed } = normalize({
+            promptPreset: 'narrative',
+            summarizerUserPrompt: 'saved custom draft',
+        });
+
+        expect(changed).toBe(false);
+        expect(settings.summarizerUserPrompt).toBe('saved custom draft');
+    });
 });

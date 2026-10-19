@@ -207,7 +207,9 @@ function enforceRetentionConstraints(changedKey) {
 function bindTextareaHandlers() {
     // Strip patterns: the markup declares the key and the "lines" type, so the
     // data-attribute engine binds them.
-    bindDataSettingElements('#sc_strip_patterns', { eventName: 'change' });
+    bindDataSettingElements('#sc_strip_patterns, #sc_layer0_source_budget_prompt', {
+        eventName: 'change',
+    });
     bindDocumentSetting({
         eventName: 'change',
         selector: '#sc_injection_template',

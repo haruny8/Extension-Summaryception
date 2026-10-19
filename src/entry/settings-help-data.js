@@ -343,6 +343,19 @@ const HELP_ENTRIES = [
         }),
     ],
     [
+        'layer0_source_budget_prompt',
+        basicHelp({
+            selector: selectorFor('sc_layer0_source_budget_prompt'),
+            title: 'Layer 0 Source Budget Prompt',
+            short: 'Customize the compression instruction sent with each Layer 0 request.',
+            controls: [controlFor('sc_layer0_source_budget_prompt')],
+            controlsText:
+                'Sets the text inside the <summaryception_source_budget> block. Use {{sentence_cap}} for the calculated sentence limit and {{target_tokens}} for the Narrative Target Size value.',
+            when: 'Edit it when the default compression instruction is too strict or too vague for your summarizer.',
+            risk: 'This changes the model-facing instruction, while the separate output-size validator still enforces the configured Narrative Target Size.',
+        }),
+    ],
+    [
         'max_l0_source_tokens',
         sliderHelp({
             selector: selectorFor('sc_max_l0_source_tokens'),
@@ -580,7 +593,7 @@ const HELP_ENTRIES = [
             short: 'Template that turns raw chat into Layer 0 memory.',
             controls: [controlFor('sc_summarizer_user_prompt')],
             controlsText:
-                'Sets the user prompt for raw-chat summaries; it can use the {{player_name}}, {{context_str}}, and {{story_txt}} variables.',
+                'Sets the user prompt for raw-chat summaries; it can use the {{context_str}}, {{message_count}}, and {{story_txt}} variables. {{message_count}} is the number of included chat messages.',
             when: 'Reach for it if the current preset keeps missing the facts you care about.',
             risk: 'Missing variables or a request for long output can break compact memory.',
         }),
@@ -606,7 +619,7 @@ const HELP_ENTRIES = [
             short: 'Template used after invalid Layer 0 output.',
             controls: [controlFor('sc_summarizer_repair_prompt')],
             controlsText:
-                'Sets the user prompt for Layer 0 validation repair retries; it can use the {{player_name}}, {{context_str}}, and {{story_txt}} variables.',
+                'Sets the user prompt for Layer 0 validation repair retries; it can use the {{context_str}}, {{message_count}}, and {{story_txt}} variables. {{message_count}} is the number of included chat messages.',
             when: 'Use it if the default repair prompt is not strict enough for your summarizer.',
             risk: 'Missing section instructions can stop repair retries from succeeding.',
         }),
@@ -671,7 +684,7 @@ const HELP_ENTRIES = [
             short: 'Template that merges lower memory into deeper memory.',
             controls: [controlFor('sc_promotion_user_prompt')],
             controlsText:
-                'Sets the user prompt for Layer 1+ promotion; it can use the {{player_name}}, {{context_str}}, and {{story_txt}} variables.',
+                'Sets the user prompt for Layer 1+ promotion; it can use the {{context_str}}, {{message_count}}, and {{story_txt}} variables. {{message_count}} is the number of source summaries being merged.',
             when: 'Reach for it if deeper memories keep too much detail or lose key state.',
             risk: 'Weak instructions create bloated or lossy meta-summaries.',
         }),
@@ -697,7 +710,7 @@ const HELP_ENTRIES = [
             short: 'Template used for failed promotion compression repair.',
             controls: [controlFor('sc_promotion_repair_prompt')],
             controlsText:
-                'Sets the user prompt for Layer 1+ promotion repair; it can use the {{player_name}}, {{context_str}}, and {{story_txt}} variables.',
+                'Sets the user prompt for Layer 1+ promotion repair; it can use the {{context_str}}, {{message_count}}, and {{story_txt}} variables. {{message_count}} is the number of source summaries being merged.',
             when: 'Turn it on if repaired promotions still keep too much detail.',
             risk: 'Bad repair instructions can erase durable continuity.',
         }),

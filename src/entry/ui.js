@@ -17,6 +17,7 @@ import { describeAutoWork } from '../core/summarization-routes.js';
 import { estimateContextPreview } from '../core/token-budget.js';
 import { buildInjection, measureInjection } from '../core/memory-injection.js';
 import { syncAllSettingsToDOM, syncRoleMaskModeControl } from './ui-bind.js';
+import { syncPromptProfiles } from './ui-prompts.js';
 import { updateSnippetBrowser } from './ui-snippets.js';
 import { syncConnectionPanels } from './ui-connection.js';
 import {
@@ -85,6 +86,7 @@ export async function updateUI({ queue }) {
  */
 function syncSettingsInputs(s, effectiveSettings) {
     syncAllSettingsToDOM(s);
+    syncPromptProfiles(s);
     syncEasyPayloadSchematic(effectiveSettings);
     syncMemoryModeControls(s);
     syncLLMContextPreview(s);

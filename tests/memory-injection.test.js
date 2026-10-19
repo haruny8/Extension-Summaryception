@@ -1,12 +1,14 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import {
     buildInjection,
+    buildMacroInjectionText,
     buildMemoryBody,
     buildMemoryInjectionParts,
     measureInjection,
     renderInjectionTemplate,
 } from '../src/core/memory-injection.js';
+import { makeMemoryInjectionWriter } from './test-helpers.js';
 import { countTextTokens } from '../src/core/token-count.js';
 
 describe('buildMemoryInjectionParts', () => {
@@ -22,6 +24,14 @@ describe('buildMemoryInjectionParts', () => {
         expect(parts.memoryText).toContain('The party reached the tavern.');
         expect(parts.memoryText).toContain('The ferry crossed at dawn.');
         expect(parts.memoryText).toBe(`[CHRONOLOGY]\n${parts.chronologyText}`);
+    });
+
+    it('separates injected snippets with a blank line', () => {
+        const parts = buildMemoryInjectionParts([
+            [{ text: 'First snippet.' }, { text: 'Second snippet.' }],
+        ]);
+
+        expect(parts.memoryText).toBe('[CHRONOLOGY]\nFirst snippet.\n\nSecond snippet.');
     });
 
     it('reports chronology parts tagged by layer index, deepest first', () => {
@@ -76,6 +86,48 @@ describe('buildInjection', () => {
 
         expect(injection.text).toBe('');
         expect(injection.parts).toEqual([]);
+    });
+});
+
+describe('buildMacroInjectionText', () => {
+    it('exposes the memory without chronology labels', () => {
+        const text = buildMacroInjectionText([[{ text: 'The party reached the tavern.' }]], {
+            injectionTemplate:
+                '<summaryception_memory>\n' +
+                'Compressed continuity.\n' +
+                '[CHRONOLOGY] = past events.\n' +
+                '{{summary}}\n' +
+                '</summaryception_memory>',
+        });
+
+        expect(text).toBe(
+            '<summaryception_memory>\n' +
+                'Compressed continuity.\n' +
+                'The party reached the tavern.\n' +
+                '</summaryception_memory>',
+        );
+        expect(text).not.toContain('[CHRONOLOGY]');
+    });
+
+    it('returns empty text when no summaries exist', () => {
+        expect(buildMacroInjectionText([], { injectionTemplate: '{{summary}}' })).toBe('');
+    });
+
+    it('registers the chronology-free builder for the live macro', async () => {
+        const handler = vi.fn();
+        globalThis.SillyTavern.getContext().extensionSettings.summaryception.injectionTemplate =
+            '<summaryception_memory>\n[CHRONOLOGY] = past events.\n{{summary}}\n</summaryception_memory>';
+        globalThis.SillyTavern.getContext().chatMetadata.summaryception.layers = [
+            [{ text: 'The party reached the tavern.', sourceMessageIds: ['message-1'] }],
+        ];
+        globalThis.summaryceptionFoundationMocks.context.registerMacro = handler;
+
+        const writer = makeMemoryInjectionWriter();
+        await writer.registerMacro();
+        const registeredHandler = handler.mock.calls[0][1];
+
+        expect(registeredHandler()).not.toContain('[CHRONOLOGY]');
+        expect(registeredHandler()).toContain('The party reached the tavern.');
     });
 });
 

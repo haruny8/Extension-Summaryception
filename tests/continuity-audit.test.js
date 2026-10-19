@@ -308,7 +308,10 @@ describe('audit commit', () => {
 
         await rig.audit();
 
-        expect(rig.dispatch.mock.calls[0][0].metadata).toEqual({ kind: 'auditor' });
+        expect(rig.dispatch.mock.calls[0][0].metadata).toEqual({
+            kind: 'auditor',
+            messageCount: 2,
+        });
     });
 
     it('refreshes the preview only after a write lands', async () => {

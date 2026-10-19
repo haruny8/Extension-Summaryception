@@ -75,9 +75,11 @@ describe('formatCompactTokenCount', () => {
     it.each([
         [999, '999'],
         [1000, '1k'],
-        // Floors toward zero rather than rounding: 1500 -> '1k', not '2k'.
-        [1500, '1k'],
-        [-1500, '-1k'],
+        [1500, '1.5k'],
+        [2000, '2k'],
+        [2500, '2.5k'],
+        [2999, '2.5k'],
+        [-1500, '-1.5k'],
     ])('formats %s as %s', (input, expected) => {
         expect(formatCompactTokenCount(input)).toBe(expected);
     });
@@ -89,8 +91,8 @@ describe('formatCompactTokenCount', () => {
 
 describe('formatTokenValue', () => {
     it('prefixes "~" only when estimated is true', () => {
-        expect(formatTokenValue(1500, true)).toBe('~1k');
-        expect(formatTokenValue(1500, false)).toBe('1k');
+        expect(formatTokenValue(1500, true)).toBe('~1.5k');
+        expect(formatTokenValue(1500, false)).toBe('1.5k');
     });
 
     it('returns "?" for a non-finite count', () => {
@@ -105,8 +107,8 @@ describe('formatTokenCount', () => {
     });
 
     it('formats an exact count without a tilde and an estimated one with a tilde', () => {
-        expect(formatTokenCount({ count: 1500, estimated: false })).toBe('1k');
-        expect(formatTokenCount({ count: 1500, estimated: true })).toBe('~1k');
+        expect(formatTokenCount({ count: 1500, estimated: false })).toBe('1.5k');
+        expect(formatTokenCount({ count: 1500, estimated: true })).toBe('~1.5k');
     });
 });
 

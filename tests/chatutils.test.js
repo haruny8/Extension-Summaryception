@@ -185,6 +185,23 @@ describe('isSummarizerPassageMessage', () => {
 });
 
 describe('buildPassageFromRangeWithStats', () => {
+    it('renders indexed role tags and resolved speaker names', async () => {
+        const chat = [
+            makeMessage({ isUser: true, name: '', mes: 'Player line.' }),
+            makeMessage({ isHidden: true, mes: 'hidden line' }),
+            makeMessage({ name: 'Yu Xuan', mes: 'Assistant line.' }),
+        ];
+        installSummaryContext({ chat, name1: 'Keiichi', name2: 'Yu Xuan' });
+
+        const passage = await buildPassageFromRangeWithStats(chat, 0, 2);
+
+        expect(passage.text).toBe(
+            '<msg index="0" role="user">\n[Keiichi]:\nPlayer line.\n</msg>\n' +
+                '<msg index="2" role="assistant">\n[Yu Xuan]:\nAssistant line.\n</msg>',
+        );
+        expect(passage.stats.messageCount).toBe(2);
+    });
+
     it('renders owned ghosted and live turns while skipping user-hidden or non-conversation records', async () => {
         const ghosted = makeMessage({ isSystem: true, isHidden: true, mes: 'ghosted turn' });
         const userHidden = makeMessage({ isHidden: true, mes: 'user hid me' });
@@ -206,5 +223,6 @@ describe('buildPassageFromRangeWithStats', () => {
         expect(passage.text).toContain('live turn');
         expect(passage.text).not.toContain('user hid me');
         expect(passage.text).not.toContain('note');
+        expect(passage.stats.messageCount).toBe(2);
     });
 });

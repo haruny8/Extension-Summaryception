@@ -86,6 +86,21 @@ describe('manual run outcome notices', () => {
         expect(button.prop('disabled')).toBe(false);
     });
 
+    it('does not reload the host page after a completed run', async () => {
+        const reload = vi.fn();
+        globalThis.location = { reload };
+        summarizerMocks.runManual.mockResolvedValue({
+            status: 'completed',
+            completed: 1,
+            failed: 0,
+            totalBatches: 1,
+        });
+
+        await dom.trigger('click', '#sc_force_summarize, #sc_easy_force_summarize', button);
+
+        expect(reload).not.toHaveBeenCalled();
+    });
+
     it('renders the idle notice from the outcome', async () => {
         summarizerMocks.runManual.mockResolvedValue({
             status: 'idle',

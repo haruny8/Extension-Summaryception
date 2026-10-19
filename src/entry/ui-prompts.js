@@ -71,6 +71,17 @@ export function bindPromptProfiles() {
     for (const field of PROMPT_FIELDS) {
         bindPromptPresetSelect(field);
         bindPromptTextarea(field);
+        syncPromptField(field, getSettings());
+    }
+}
+
+/**
+ * @param {ReturnType<typeof getSettings>} [settings]
+ * @returns {void}
+ */
+export function syncPromptProfiles(settings = getSettings()) {
+    for (const field of PROMPT_FIELDS) {
+        syncPromptField(field, settings);
     }
 }
 
@@ -85,13 +96,7 @@ function bindPromptPresetSelect(field) {
         const s = getSettings();
 
         s[field.presetKey] = selected;
-
-        if (selected !== 'custom') {
-            const presetText = field.presets[selected] || field.presets[field.defaultPreset];
-            $(field.textarea).val(presetText);
-            s[field.settingKey] = presetText;
-        }
-
+        syncPromptField(field, s);
         saveSettings();
     });
 }
@@ -114,4 +119,14 @@ function switchPromptFieldToCustom(field, settings) {
 
     settings[field.presetKey] = 'custom';
     $(field.presetSelect).val('custom');
+}
+
+function syncPromptField(field, settings) {
+    const selected = settings[field.presetKey];
+    const promptText =
+        selected === 'custom'
+            ? settings[field.settingKey]
+            : field.presets[selected] || field.presets[field.defaultPreset];
+    $(field.presetSelect).val(selected);
+    $(field.textarea).val(promptText);
 }

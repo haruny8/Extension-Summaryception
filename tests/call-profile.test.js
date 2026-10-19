@@ -14,6 +14,14 @@ describe('resolveCallProfile prompts', () => {
         auditorSystemPrompt: 'AUD-SYS',
         auditorUserPrompt: 'AUD-USER',
         summarizerRepairPrompt: 'L0-REPAIR',
+        summarizerSystemPromptPreset: 'custom',
+        promptPreset: 'custom',
+        summarizerRepairPromptPreset: 'custom',
+        promotionSystemPromptPreset: 'custom',
+        promotionPromptPreset: 'custom',
+        promotionRepairPromptPreset: 'custom',
+        auditorSystemPromptPreset: 'custom',
+        auditorPromptPreset: 'custom',
     });
 
     it('routes each call family to its own prompt settings', () => {
@@ -59,10 +67,27 @@ describe('resolveCallProfile prompts', () => {
     });
 
     it('carries an intentionally empty prompt string through without substituting the default', () => {
-        const policy = resolveCallProfile(makeSummarySettings({ summarizerUserPrompt: '' }), {
-            kind: 'layer0',
-        }).policy;
+        const policy = resolveCallProfile(
+            makeSummarySettings({ promptPreset: 'custom', summarizerUserPrompt: '' }),
+            { kind: 'layer0' },
+        ).policy;
         expect(policy.userPromptTemplate).toBe('');
+    });
+
+    it('uses the selected default at runtime while keeping custom text available', () => {
+        const settings = makeSummarySettings({
+            promptPreset: 'narrative',
+            summarizerUserPrompt: 'saved custom draft',
+        });
+
+        expect(resolveCallProfile(settings, { kind: 'layer0' }).policy.userPromptTemplate).toBe(
+            defaultSettings.summarizerUserPrompt,
+        );
+
+        settings.promptPreset = 'custom';
+        expect(resolveCallProfile(settings, { kind: 'layer0' }).policy.userPromptTemplate).toBe(
+            'saved custom draft',
+        );
     });
 
     it('resolves the repair template for the layer0 family only', () => {

@@ -173,6 +173,7 @@ async function regenerateSnippetWithTarget(target, notify, gate, dispatch) {
         metadata: {
             kind: 'regenerate',
             sourceRange: target.range,
+            messageCount: passage.stats.messageCount,
             regexStats: passage.stats,
             passageNames: buildPassageNameCensus(passage.text).join(', '),
         },
