@@ -123,8 +123,6 @@ interface ExtensionSettings {
     promotionSystemPromptPreset: string;
     promotionSystemPrompt: string;
     promotionUserPrompt: string;
-    promotionRepairPromptPreset: string;
-    promotionRepairPrompt: string;
     auditorSystemPromptPreset: string;
     auditorSystemPrompt: string;
     auditorPromptPreset: string;

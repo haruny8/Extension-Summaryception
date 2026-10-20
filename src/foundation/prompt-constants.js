@@ -101,8 +101,7 @@ export const DEFAULT_INJECTION_TEMPLATE =
     '</summaryception_memory>';
 
 export const DEFAULT_LAYER0_SOURCE_BUDGET_PROMPT =
-    'Compress the source passage hard.\n' +
-    '<narrative>: write at most {{sentence_cap}} sentences.';
+    'Compress the source passage hard. Aim for roughly {{target_tokens}} tokens when practical; use more or less space to preserve durable continuity.';
 
 /**
  * Sample wrapper that repeats the memory block for stronger recall. Models
@@ -183,7 +182,7 @@ Read the entire provided passage before writing; never summarize only its tail.
 Treat <prior_context> as settled history: never restate it; add only what the passage changed: stakes, goals, feelings, trust, attraction, power, obligations, knowledge, resources, threats, or direction. If the passage repeats a prior pattern without escalation, record it in one clause or not at all.
 A relationship or emotional change must have its causing moment shown in the narrative.
 If the prose uses 2nd person ('you'), map it to the player identified by the tagged source messages. Never use second-person pronouns in the output.
-Keep the narrative compact; follow the sentence cap provided at the end of this prompt.
+Keep the narrative compact and aim near the requested target size when the source supports it.
 Durable changes belong in the narrative; ephemeral trivia does not. Do NOT preserve clothing, pose, momentary mood/arousal, ordinary props, completed errands, resolved hooks, physiological or sex counters, consumed food/drink, or soiled/used/disposed temporary items.
 End with the current_date_time line described in the output schema.`,
     criticalRules: LAYER0_CRITICAL_RULES,
@@ -197,7 +196,7 @@ export const DEFAULT_SUMMARIZER_REPAIR_PROMPT = buildUserPrompt({
 Apply the durability rules strictly: keep ${CORE_MOMENT_TYPES} with their cause-to-effect chain; cut excess tissue harder than the first attempt; read the entire provided passage.
 If the prose uses 2nd person ('you'), map it to the player identified by the tagged source messages. Never use second-person pronouns in the output.
 Omission removes a fact rather than preserving it. Exclude transient scene detail, completed tasks, resolved hooks, and ordinary items.
-Keep the narrative compact; follow the sentence cap provided at the end of this prompt.
+Keep the narrative compact and aim near the requested target size when the source supports it.
 Always include current_date_time using YYYY-MM-DD HH ddd, carrying forward the prior value if no explicit time appears.
 Do not include prose, bullets, tables, duplicate section headers, markdown, or commentary after the current_date_time line.`,
     criticalRules: LAYER0_CRITICAL_RULES,
@@ -214,10 +213,10 @@ export const DEFAULT_PROMOTION_USER_PROMPT = buildUserPrompt({
     schemaBlock: `Output exactly one <narrative> envelope:
 
 <narrative>
-One single prose paragraph containing AT MOST {{max_sentences_word}} ({{max_sentences}}) sentences total. Summarize major plot outcomes only. One dense third-person chronological prose paragraph. Never use second-person. ${ANTI_RUN_ON_RULE}
+One single dense third-person chronological prose paragraph. Summarize major plot outcomes only. Never use second-person. ${ANTI_RUN_ON_RULE}
 </narrative>`,
-    taskRules: `### LENGTH CONTRACT (HARD LIMIT):
-The consolidated <narrative> must stay within the sentence cap given at the end of this prompt. This is a hard limit: if a draft runs long, delete whole beats rather than trimming wording. Overlong output is rejected and regenerated.
+    taskRules: `### COMPRESSION GUIDANCE:
+Aim for the requested narrative target size when practical, but preserve complete durable chronology and unresolved continuity over an exact length.
 ### LOSSY COMPRESSION:
 The input memories overlap heavily: each was written with the prior ones as context, so they restate the same relationships, rules, locations, and props. Treat that overlap as redundancy, not emphasis. Compress by deletion, not summarization-in-place:
 - State each relationship, rule, location, and prop exactly once, at the point it was established or last changed.
@@ -240,20 +239,6 @@ Omit ephemeral trivia: physiological or sex counters, consumed food/drink, soile
 4. **Deduplication:** Omit transitional actions, low-impact micro-movements, scene replay, and momentary dialogue loops.
 5. **Abstraction:** Merge repeated related beats into one cumulative state change, boundary, rule, or outcome.
 ${PROMOTION_MODERATE_MACRO_RULES}`,
-    criticalRules: PROMOTION_CRITICAL_RULES,
-    triggerLine: EXECUTION_TRIGGER_PROMO,
-});
-
-export const DEFAULT_PROMOTION_REPAIR_PROMPT = buildUserPrompt({
-    inputBlocks: PROMOTION_INPUT_BLOCKS,
-    schemaBlock: `Output exactly one <narrative> envelope:
-
-<narrative>
-One dense third-person chronological prose paragraph. Never use second-person. ${ANTI_RUN_ON_RULE}
-</narrative>`,
-    taskRules: `Repair the previous Layer 1+ promotion draft. It failed the compression guard, so rewrite the same source memories more abstractly instead of adding detail.
-Keep only durable macro-level chronology, current position, relationship changes, core emotional moments, permanent rules, and open threads (unresolved hooks, debts, promises); revise threads in place and never silently drop one with residual consequences; do not output lists, markdown, commentary, or key-value syntax.
-Resolve every relative time word against the source snippets' scene-date anchors and emit absolute dates only; never leave a bare relative time word.`,
     criticalRules: PROMOTION_CRITICAL_RULES,
     triggerLine: EXECUTION_TRIGGER_PROMO,
 });

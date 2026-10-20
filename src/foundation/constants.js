@@ -3,7 +3,6 @@ import {
     DEFAULT_AUDITOR_USER_PROMPT,
     DEFAULT_INJECTION_TEMPLATE,
     DEFAULT_LAYER0_SOURCE_BUDGET_PROMPT,
-    DEFAULT_PROMOTION_REPAIR_PROMPT,
     DEFAULT_PROMOTION_SYSTEM_PROMPT,
     DEFAULT_PROMOTION_USER_PROMPT,
     DEFAULT_SUMMARIZER_REPAIR_PROMPT,
@@ -254,7 +253,6 @@ export const defaultSettings = Object.freeze({
     summarizerRepairPrompt: DEFAULT_SUMMARIZER_REPAIR_PROMPT,
     promotionSystemPrompt: DEFAULT_PROMOTION_SYSTEM_PROMPT,
     promotionUserPrompt: DEFAULT_PROMOTION_USER_PROMPT,
-    promotionRepairPrompt: DEFAULT_PROMOTION_REPAIR_PROMPT,
     auditorSystemPrompt: DEFAULT_AUDITOR_SYSTEM_PROMPT,
     auditorUserPrompt: DEFAULT_AUDITOR_USER_PROMPT,
 
@@ -263,7 +261,6 @@ export const defaultSettings = Object.freeze({
     summarizerRepairPromptPreset: 'narrative', // 'narrative' | 'custom'
     promotionSystemPromptPreset: 'narrative', // 'narrative' | 'custom'
     promotionPromptPreset: 'narrative', // 'narrative' | 'custom'
-    promotionRepairPromptPreset: 'narrative', // 'narrative' | 'custom'
     auditorSystemPromptPreset: 'continuity', // 'continuity' | 'custom'
     auditorPromptPreset: 'continuity', // 'continuity' | 'custom'
     applyRegexScripts: true, // true = apply ST's regex scripts to passage text before summarizing
@@ -343,11 +340,6 @@ export const PROMOTION_SYSTEM_PROMPT_PRESETS = {
     custom: null,
 };
 
-export const PROMOTION_REPAIR_PROMPT_PRESETS = {
-    narrative: defaultSettings.promotionRepairPrompt,
-    custom: null,
-};
-
 export const AUDITOR_PROMPT_PRESETS = {
     continuity: defaultSettings.auditorUserPrompt,
     custom: null, // Uses whatever is in the textarea
@@ -381,10 +373,6 @@ export const PROMPT_SETTING_KEYS = Object.freeze([
         settingKey: 'promotionSystemPrompt',
     }),
     Object.freeze({ presetKey: 'promotionPromptPreset', settingKey: 'promotionUserPrompt' }),
-    Object.freeze({
-        presetKey: 'promotionRepairPromptPreset',
-        settingKey: 'promotionRepairPrompt',
-    }),
     Object.freeze({
         presetKey: 'auditorSystemPromptPreset',
         settingKey: 'auditorSystemPrompt',

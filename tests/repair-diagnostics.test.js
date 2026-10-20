@@ -2,12 +2,9 @@ import { describe, expect, it } from 'vitest';
 
 import {
     buildRepairDiagnostics,
-    buildStructuralRepairFeedback,
-    countSentences,
     formatRepairDiagnostics,
     getReductionGuidance,
 } from '../src/core/repair-diagnostics.js';
-import { computeSentenceCap } from '../src/core/token-budget.js';
 
 describe('buildRepairDiagnostics', () => {
     it('coerces non-finite section counts to 0 and rounds positive ones', () => {
@@ -122,7 +119,6 @@ describe('buildRepairDiagnostics', () => {
         expect(coerced.totalTokens).toBe(10);
     });
 });
-
 describe('getReductionGuidance', () => {
     it.each([
         ['non-finite actual', NaN, 100],
@@ -237,89 +233,5 @@ describe('formatRepairDiagnostics', () => {
             sections: [{ id: 'long', actualTokens: 200, hardMaxTokens: 100 }],
         });
         expect(formatRepairDiagnostics(withViolation)).not.toContain('<rejected_draft>');
-    });
-});
-
-describe('countSentences', () => {
-    it.each([
-        ['', 0],
-        ['   ', 0],
-        [null, 0],
-    ])('returns 0 for empty input (%s)', (text, expected) => {
-        expect(countSentences(text)).toBe(expected);
-    });
-
-    it('counts a single unterminated sentence as 1', () => {
-        expect(countSentences('a lone fragment with no terminal mark')).toBe(1);
-    });
-
-    it('splits on terminal punctuation followed by whitespace', () => {
-        expect(countSentences('One. Two! Three?')).toBe(3);
-    });
-
-    it('counts a trailing sentence with no following whitespace', () => {
-        expect(countSentences('One. Two')).toBe(2);
-    });
-});
-
-// Build a size-rejection diagnostics object via the shared contract so the
-// feedback tests track buildRepairDiagnostics rather than hand-crafted shapes.
-function makeViolation({ id, text, reason = 'above-hard-maximum' }) {
-    const hardMaxTokens = reason === 'above-hard-maximum' ? 1 : 0;
-    const minimumTokens = reason === 'below-minimum' ? 100 : 0;
-    return buildRepairDiagnostics({
-        sections: [
-            {
-                id,
-                actualTokens: reason === 'below-minimum' ? 1 : 100,
-                hardMaxTokens,
-                minimumTokens,
-                text,
-            },
-        ],
-    });
-}
-
-describe('buildStructuralRepairFeedback', () => {
-    it('returns "" when violations is missing or not an array', () => {
-        expect(buildStructuralRepairFeedback({}, {})).toBe('');
-        expect(buildStructuralRepairFeedback({ violations: 'nope' }, {})).toBe('');
-    });
-
-    it('returns "" when the only violation is below-minimum (not above-hard-maximum)', () => {
-        const diagnostics = makeViolation({
-            id: 'narrative',
-            text: 'a short beat',
-            reason: 'below-minimum',
-        });
-        expect(buildStructuralRepairFeedback(diagnostics, {})).toBe('');
-    });
-
-    it('emits a narrative line mentioning sentences and the cap when the count exceeds it', () => {
-        const sourceBudget = { layer: 'l0', targetTokens: 100 };
-        const cap = computeSentenceCap('l0', 100);
-        const sentences = Array.from({ length: cap + 3 }, (_v, i) => `Sentence ${i}.`).join(' ');
-        const diagnostics = makeViolation({ id: 'narrative', text: sentences });
-        const feedback = buildStructuralRepairFeedback(diagnostics, sourceBudget);
-        expect(feedback).toContain(String(cap + 3));
-        expect(feedback).toContain(String(cap));
-        expect(feedback.toLowerCase()).toContain('sentences');
-    });
-
-    it('joins multiple actionable narrative violations with newlines', () => {
-        const sourceBudget = { layer: 'l0', targetTokens: 100 };
-        const narrativeCap = computeSentenceCap('l0', 100);
-        const narrativeText = Array.from(
-            { length: narrativeCap + 2 },
-            (_v, i) => `Sentence ${i}.`,
-        ).join(' ');
-        const diagnostics = buildRepairDiagnostics({
-            sections: [
-                { id: 'narrative', actualTokens: 100, hardMaxTokens: 1, text: narrativeText },
-                { id: 'narrative', actualTokens: 100, hardMaxTokens: 1, text: narrativeText },
-            ],
-        });
-        const feedback = buildStructuralRepairFeedback(diagnostics, sourceBudget);
-        expect(feedback.split('\n')).toHaveLength(2);
     });
 });

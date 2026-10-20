@@ -1,5 +1,3 @@
-import { computeSentenceCap } from './token-budget.js';
-
 const REDUCTION_GUIDANCE = [
     { amount: 0.8, label: 'about four-fifths' },
     { amount: 0.75, label: 'about three-quarters' },
@@ -93,44 +91,6 @@ export function formatRepairDiagnostics(
     lines.push('</' + wrapper + '>');
     return lines.join('\n');
 }
-/**
- * Build countable repair feedback for output above a hard maximum.
- * @param {object} diagnostics
- * @param {{ targetTokens?: number, layer?: 'l0' | 'l1' | 'l2' }} [sourceBudget]
- * @returns {string}
- */
-export function buildStructuralRepairFeedback(diagnostics = {}, sourceBudget = {}) {
-    const violations = Array.isArray(diagnostics.violations) ? diagnostics.violations : [];
-    const lines = [];
-
-    for (const violation of violations) {
-        if (!violation || violation.reason !== 'above-hard-maximum') {
-            continue;
-        }
-        const text = String(violation.text || '');
-        if (violation.id === 'narrative') {
-            const actual = countSentences(text);
-            const cap = computeSentenceCap(sourceBudget.layer ?? 'l0', sourceBudget.targetTokens);
-            if (actual > cap) {
-                lines.push(
-                    `Your <narrative> section had ${actual} sentences; maximum ${cap}. Merge or drop the ${actual - cap} least-important.`,
-                );
-            }
-        }
-    }
-
-    return lines.join('\n');
-}
-
-/**
- * @param {string} text
- * @returns {number}
- */
-export function countSentences(text) {
-    const trimmed = String(text || '').trim();
-    return trimmed ? trimmed.split(/[.!?]+\s+/).filter(Boolean).length : 0;
-}
-
 function normalizeCount(value) {
     const count = Number(value);
     return Number.isFinite(count) && count > 0 ? Math.round(count) : 0;

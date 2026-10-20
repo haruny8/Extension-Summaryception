@@ -348,6 +348,9 @@
                                 <label for="sc_preview">Injection Preview</label>
                                 <div class="sc-field-actions">
                                     <span id="sc_preview_token_count" class="sc-context-total">0 tokens</span>
+                                    <button id="sc_copy_preview" class="menu_button sc-icon-button" title="Copy preview to clipboard" aria-label="Copy preview to clipboard">
+                                        <i class="fa-solid fa-copy"></i>
+                                    </button>
                                     <button id="sc_refresh_preview" class="menu_button sc-icon-button" title="Refresh preview">
                                         <i class="fa-solid fa-rotate"></i>
                                     </button>
@@ -829,7 +832,7 @@
                                     <div class="sc-row">
                                         <label for="sc_layer0_summary_token_target">
                                             <span>Narrative Target Size</span>
-                                            <small class="sc-hint">Target length for each new <code>&lt;narrative&gt;</code> envelope.</small>
+                                            <small class="sc-hint">Preferred length hint for each new <code>&lt;narrative&gt;</code> envelope. The model may use more or less space to preserve continuity.</small>
                                         </label>
                                         <div class="sc-slider-row">
                                             <input type="range" id="sc_layer0_summary_token_target" min="80" max="4000" step="10" data-sc-slider-setting="layer0SummaryTokenTarget" data-sc-partner-input="#sc_layer0_summary_token_target_val" />
@@ -839,7 +842,7 @@
                                     <div class="sc-row">
                                         <label for="sc_layer0_source_budget_prompt">
                                             <span>Layer 0 Source Budget Prompt</span>
-                                            <small class="sc-hint">Editable text sent inside the source-budget block. Use <code>{{sentence_cap}}</code> for the calculated sentence cap or <code>{{target_tokens}}</code> for the target size.</small>
+                                            <small class="sc-hint">Editable guidance sent inside the source-budget block. Use <code>{{sentence_cap}}</code> for the suggested sentence count or <code>{{target_tokens}}</code> for the target size.</small>
                                         </label>
                                         <textarea id="sc_layer0_source_budget_prompt" class="text_pole sc-textarea" rows="4" data-sc-setting="layer0SourceBudgetPrompt" data-sc-type="string"></textarea>
                                     </div>
@@ -1099,24 +1102,6 @@
                             </small>
                         </label>
                         <textarea id="sc_promotion_user_prompt" class="text_pole sc-textarea sc-textarea-tall" rows="10" data-sc-setting="promotionUserPrompt"></textarea>
-                    </div>
-                    <div class="sc-setting-row">
-                        <label for="sc_promotion_repair_prompt_preset">
-                            <span>Layer 1+ Repair Preset</span>
-                        </label>
-                        <select id="sc_promotion_repair_prompt_preset" class="text_pole" data-sc-setting="promotionRepairPromptPreset">
-                            <option value="narrative">Default</option>
-                            <option value="custom">Custom</option>
-                        </select>
-                    </div>
-                    <div class="sc-row sc-prompt-secondary">
-                        <label for="sc_promotion_repair_prompt">
-                            <span>Layer 1+ Repair Prompt</span>
-                            <small class="sc-hint">
-                                Variables: <code>{{context_str}}</code> <code>{{message_count}}</code> <code>{{story_txt}}</code>
-                            </small>
-                        </label>
-                        <textarea id="sc_promotion_repair_prompt" class="text_pole sc-textarea sc-textarea-tall" rows="8" data-sc-setting="promotionRepairPrompt"></textarea>
                     </div>
                     </div>
                     <div class="sc-prompt-pane" role="tabpanel" data-sc-prompt-panel="auditor" hidden>

@@ -86,6 +86,31 @@ describe('manual run outcome notices', () => {
         expect(button.prop('disabled')).toBe(false);
     });
 
+    it('cancels the active manual run from the progress toast button', async () => {
+        let resolveRun;
+        summarizerMocks.runManual.mockImplementation(
+            (_deps, _strategy, options) =>
+                new Promise((resolve) => {
+                    resolveRun = resolve;
+                    options.onStart({ completed: 0, failed: 0, totalBatches: 2 });
+                }),
+        );
+
+        const running = dom.trigger(
+            'click',
+            '#sc_force_summarize, #sc_easy_force_summarize',
+            button,
+        );
+        await vi.waitFor(() => expect(resolveRun).toBeTypeOf('function'));
+        const progressOptions = globalThis.toastr.info.mock.calls
+            .map((call) => call[2])
+            .find((options) => options.toastClass?.includes('sc-manual-progress-toast'));
+        progressOptions.onCloseClick();
+        expect(summarizerMocks.runManual.mock.calls.at(-1)[2].signal.aborted).toBe(true);
+        resolveRun({ status: 'aborted', completed: 0, failed: 0, totalBatches: 2 });
+        await running;
+    });
+
     it('does not reload the host page after a completed run', async () => {
         const reload = vi.fn();
         globalThis.location = { reload };

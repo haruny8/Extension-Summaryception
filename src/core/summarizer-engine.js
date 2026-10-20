@@ -123,7 +123,11 @@ export async function runManual(deps, strategy, options = {}) {
             options.notify,
             deps.gate,
             deps.dispatch,
+            options.signal,
         );
+        if (promotionStatus === 'aborted') {
+            tally.aborted = true;
+        }
         deps.refreshUi();
         return deriveManualRunOutcome(
             { ...tally, blocked: tally.blocked || promotionStatus === 'blocked' },
@@ -302,6 +306,7 @@ async function executeManualTask(deps, strategy, target, options) {
                 notify: options.notify,
                 gate: deps.gate,
                 dispatch: deps.dispatch,
+                signal: options.signal,
             });
             const step = await applyManualLoopStep({
                 tally,
@@ -345,7 +350,7 @@ const MANUAL_FAILURE_LIMIT = 3;
  * @param {object} step - One loop step's inputs.
  * @param {import('./summarizer-queue.js').WorkGateRun} step.runToken - The run's work gate lease; a stopped lease detects external stops.
  * @param {ManualRunTally} step.tally - Run state updated in place.
- * @param {{ success: boolean, committed: boolean, blocked: boolean, done?: boolean }} step.result - Batch result flags.
+ * @param {{ success: boolean, committed: boolean, blocked: boolean, aborted?: boolean, done?: boolean }} step.result - Batch result flags.
  * @param {AbortSignal} [step.signal] - Cancellation signal for the run.
  * @param {import('./notify.js').NotifyAdapter} [step.notify] - Notify adapter for promotions.
  * @param {import('./foreground-gate.js').ForegroundGate} step.gate - Foreground Gate the loop step asks before continuing.
@@ -363,6 +368,11 @@ async function applyManualLoopStep({
     dispatch,
     consecutiveFailures,
 }) {
+    if (result.aborted) {
+        tally.aborted = true;
+        return { exit: true, consecutiveFailures };
+    }
+
     if (result.blocked) {
         tally.blocked = true;
     } else if (result.success && result.committed) {
@@ -380,9 +390,16 @@ async function applyManualLoopStep({
     }
 
     if (result.success && result.committed) {
-        const promotion = await normalizePromotions(notify, gate, dispatch);
+        if (isCancelled(signal) || runToken.isStopped()) {
+            tally.aborted = true;
+            return { exit: true, consecutiveFailures };
+        }
+        const promotion = await normalizePromotions(notify, gate, dispatch, signal);
         if (promotion.status === 'blocked') {
             tally.blocked = true;
+        } else if (promotion.status === 'aborted') {
+            tally.aborted = true;
+            return { exit: true, consecutiveFailures };
         } else if (promotion.status === 'failed') {
             // A drain that gave up is not a failed batch: the run still
             // committed its work, so it reports partial, not failed.
@@ -414,22 +431,25 @@ async function applyManualLoopStep({
  * @param {import('./notify.js').NotifyAdapter | undefined} p.notify
  * @param {import('./foreground-gate.js').ForegroundGate} p.gate
  * @param {import('./summarizer-request.js').SummarizerDispatch['call']} p.dispatch - Summarizer Dispatch the run calls through.
- * @returns {Promise<{ success: boolean, committed: boolean, blocked: boolean, done?: boolean }>}
+ * @param {AbortSignal} [p.signal]
+ * @returns {Promise<{ success: boolean, committed: boolean, blocked: boolean, aborted: boolean, done?: boolean }>}
  */
-async function processStrategyBatch(plan, strategy, { notify, gate, dispatch }) {
+async function processStrategyBatch(plan, strategy, { notify, gate, dispatch, signal }) {
     const beforeIndex = getCurrentSummarizedBoundary(getChat(), getChatStore());
-    const outcome = await runLayer0(plan, { notify, gate, dispatch });
+    const outcome = await runLayer0(plan, { notify, signal, gate, dispatch });
     const afterIndex = getCurrentSummarizedBoundary(getChat(), getChatStore());
     return {
         success: outcome.status === 'completed',
         blocked: outcome.status === 'blocked',
+        aborted: outcome.status === 'aborted',
         ...strategy.assessCommit(plan, beforeIndex, afterIndex),
     };
 }
 
-async function normalizeManualMemory(tally, notify, gate, dispatch) {
+async function normalizeManualMemory(tally, notify, gate, dispatch, signal) {
     if (
         tally.aborted ||
+        isCancelled(signal) ||
         tally.blocked ||
         tally.completed === 0 ||
         tally.failed > 0 ||
@@ -441,11 +461,17 @@ async function normalizeManualMemory(tally, notify, gate, dispatch) {
         info('Manual promotion deferred; prompt mutation guard is active.');
         return 'blocked';
     }
-    return (await normalizePromotions(notify, gate, dispatch)).status;
+    return (await normalizePromotions(notify, gate, dispatch, signal)).status;
 }
 
-async function normalizePromotions(notify, gate, dispatch) {
-    return await drainPromotionOverflow({ maxConsecutiveFailures: 3, notify, gate, dispatch });
+async function normalizePromotions(notify, gate, dispatch, signal) {
+    return await drainPromotionOverflow({
+        maxConsecutiveFailures: 3,
+        notify,
+        gate,
+        dispatch,
+        signal,
+    });
 }
 
 async function prepareManualRun(deps, recoverReason) {

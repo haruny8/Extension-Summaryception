@@ -1,11 +1,5 @@
 import { defaultSettings } from '../foundation/constants.js';
 
-// One source of per-layer size policy: Layer 0 output bounds, promotion
-// quotas, and the repair ceiling all derive from these ratios.
-export const TOKENS_PER_SENTENCE = 35;
-export const LAYER_MIN_RATIO = { l0: 0.4, l1: 0.4, l2: 0.3 };
-export const LAYER_HARD_MAX_RATIO = { l0: 1.5, l1: 1.75, l2: 1.5 };
-export const LAYER0_REPAIR_RATIO = 1.65;
 export const LAYER_SAFETY_MULTIPLIER = { l0: 0.85, l1: 0.5, l2: 0.5 };
 
 /**
@@ -14,65 +8,8 @@ export const LAYER_SAFETY_MULTIPLIER = { l0: 0.85, l1: 0.5, l2: 0.5 };
  */
 export const SUBSTANTIAL_SOURCE_TOKEN_THRESHOLD = 500;
 
-/**
- * Integer sentence cap for a layer, derived from the configured token target.
- * @param {'l0' | 'l1' | 'l2' | number} layer
- * @param {number | undefined} targetTokens
- * @returns {number}
- */
-export function computeSentenceCap(layer, targetTokens) {
-    const key = getLayerKey(layer);
-    const target = Number(targetTokens);
-    if (!Number.isFinite(target) || target <= 0) {
-        return 1;
-    }
-    const raw = Math.floor(
-        (LAYER_HARD_MAX_RATIO[key] * target * LAYER_SAFETY_MULTIPLIER[key]) / TOKENS_PER_SENTENCE,
-    );
-    return Math.max(1, raw);
-}
-
-/**
- * @param {'l0' | 'l1' | 'l2' | number} layer
- * @returns {'l0' | 'l1' | 'l2'}
- */
-function getLayerKey(layer) {
-    if (layer === 'l0' || layer === 0) {
-        return 'l0';
-    }
-    if (layer === 'l1') {
-        return 'l1';
-    }
-    return 'l2';
-}
-
-/**
- * Format a countable size-cap line shared by L0 and L1+ prompt blocks.
- * @param {object} p
- * @param {string} p.label
- * @param {number} p.cap
- * @param {string} p.unit
- * @param {string} [p.verb]
- * @param {string} [p.extra]
- * @returns {string}
- */
-export function buildSizeTargetLine({ label, cap, unit, verb = '', extra = '' }) {
-    const verbClause = verb ? `${verb} ` : '';
-    const base = `${label}: ${verbClause}at most ${cap} ${unit}.`;
-    return extra ? `${base} ${extra}` : base;
-}
-
-/**
- * Format the standalone size-constraints block appended to a prompt.
- * @param {object} p
- * @param {string} p.wrapperTag
- * @param {string} p.targetLine
- * @param {string} [p.repairLine]
- * @returns {string}
- */
-export function buildSizeConstraintsBlock({ wrapperTag, targetLine, repairLine = '' }) {
-    return `<${wrapperTag}>\n${targetLine}\n${repairLine}</${wrapperTag}>`;
-}
+const ADVISORY_TOKENS_PER_SENTENCE = 35;
+const ADVISORY_LAYER0_SIZE_FACTOR = 1.5 * 0.85;
 
 /**
  * Build the Layer 0 model-countable source budget block.
@@ -85,10 +22,13 @@ export function buildLayer0BudgetHint({
     targetTokens,
     template = defaultSettings.layer0SourceBudgetPrompt,
 }) {
-    const sentenceCap = computeSentenceCap('l0', targetTokens);
     const resolvedTarget = Number.isFinite(Number(targetTokens))
         ? Math.round(Number(targetTokens))
         : defaultSettings.layer0SummaryTokenTarget;
+    const sentenceCap = Math.max(
+        1,
+        Math.floor((resolvedTarget * ADVISORY_LAYER0_SIZE_FACTOR) / ADVISORY_TOKENS_PER_SENTENCE),
+    );
     const body = String(template ?? '')
         .replaceAll('{{sentence_cap}}', String(sentenceCap))
         .replaceAll('{{target_tokens}}', String(resolvedTarget));

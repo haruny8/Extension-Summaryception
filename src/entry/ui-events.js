@@ -310,6 +310,34 @@ function bindClickHandlers(notify, gate) {
 
     $(document).on('click', '#sc_refresh_preview', () => refreshUi());
 
+    $(document).on('click', '#sc_copy_preview', async function () {
+        const previewText = String($('#sc_preview').val() ?? '');
+        try {
+            if (navigator.clipboard?.writeText) {
+                await navigator.clipboard.writeText(previewText);
+            } else {
+                const fallback = document.createElement('textarea');
+                fallback.value = previewText;
+                fallback.setAttribute('readonly', '');
+                fallback.style.position = 'fixed';
+                fallback.style.opacity = '0';
+                document.body.appendChild(fallback);
+                try {
+                    fallback.select();
+                    if (!document.execCommand('copy')) {
+                        throw new Error('Clipboard copy command failed');
+                    }
+                } finally {
+                    fallback.remove();
+                }
+            }
+            toastr.success('Preview copied to clipboard', TOAST_TITLE);
+        } catch (e) {
+            error('Copy preview failed:', e);
+            toastr.error('Could not copy preview to clipboard', TOAST_TITLE);
+        }
+    });
+
     $(document).on('click', '#sc_export', function () {
         const store = getChatStore();
         const blob = new Blob([JSON.stringify(store, null, 2)], { type: 'application/json' });

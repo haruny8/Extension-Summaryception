@@ -1,7 +1,7 @@
 import { NOTIFY_EVENTS } from '../foundation/constants.js';
 import { warn } from '../foundation/logger.js';
 import { getEffectiveSettings } from '../foundation/settings.js';
-import { validateLayer0OutputSize, validateLayer0Structure } from './layer0-compression.js';
+import { validateLayer0Structure } from './layer0-compression.js';
 import {
     extractDeclinedReason,
     findPassageShapeRefusal,
@@ -16,8 +16,6 @@ import { getSourceTokenCount, SUBSTANTIAL_SOURCE_TOKEN_THRESHOLD } from './token
 
 const CHINESE_IDEOGRAPH_REGEX = /\p{Script=Han}/gu;
 const VISIBLE_CHARACTER_REGEX = /\S/gu;
-const MIN_OUTPUT_TOKENS_FOR_SUBSTANTIAL_SOURCE = 30;
-const MIN_OUTPUT_CHARS_FOR_SUBSTANTIAL_SOURCE = 150;
 
 /**
  * Strip reasoning tags, thinking blocks, and other model artifacts
@@ -92,7 +90,7 @@ function applyChineseOutputPolicy(cleanedResult, profile) {
 /**
  * Validate cleaned summarizer output before it can be committed: the Refusal
  * Guard (declined marker, then the layer0-family envelope, lexical, and
- * passage-shape checks) and the minimum-output rule for substantial sources.
+ * passage-shape checks).
  * @param {string} text - Cleaned summarizer output
  * @param {import('./call-profile.js').CallProfile} profile - Call profile resolved at dispatch
  * @returns {{ valid: true, error: null } | { valid: false, error: Error & { retryable?: boolean } }}
@@ -110,12 +108,6 @@ export function validateSummarizerOutputIntegrity(text, profile) {
     const policyRejection = compressionPolicyRejection(output, profile);
     if (policyRejection) {
         return rejectIntegrity(policyRejection);
-    }
-
-    const sourceTokens = getSourceTokenCount(profile?.provenance);
-    const tooShort = tooShortRejection(output, sourceTokens);
-    if (tooShort) {
-        return rejectIntegrity(tooShort);
     }
 
     return { valid: true, error: null };
@@ -136,22 +128,6 @@ function declinedRejection(output) {
 }
 
 /**
- * @param {string} output - Cleaned summarizer output
- * @param {number} sourceTokens - Source token count from the call's provenance
- * @returns {string} Empty string when the draft passes, the rejection reason otherwise
- */
-function tooShortRejection(output, sourceTokens) {
-    if (sourceTokens <= SUBSTANTIAL_SOURCE_TOKEN_THRESHOLD || !isOutputTooShortForSource(output)) {
-        return '';
-    }
-    const stats = getApproximateOutputStats(output);
-    return (
-        `output too short for ${sourceTokens} source tokens ` +
-        `(${stats.tokens} tokens, ${stats.characters} characters)`
-    );
-}
-
-/**
  * The compression-call policy contract: envelope structure for the layer0
  * family, the lexical refusal net for every compression call, and the
  * passage-shape signal for the layer0 family on a substantial source.
@@ -160,7 +136,7 @@ function tooShortRejection(output, sourceTokens) {
  * @returns {string} Empty string when the draft passes, a rejection reason otherwise
  */
 function compressionPolicyRejection(output, profile) {
-    if (profile?.policy?.sizeGuard) {
+    if (profile?.policy?.narrativeEnvelope) {
         const structuralError = validateLayer0Structure(output);
         if (structuralError) {
             return structuralError;
@@ -178,7 +154,7 @@ function compressionPolicyRejection(output, profile) {
         }
     }
 
-    if (profile?.policy?.sizeGuard) {
+    if (profile?.policy?.narrativeEnvelope) {
         return findPassageShapeRejection(output, profile);
     }
     return '';
@@ -252,22 +228,6 @@ function countMatches(text, regex) {
     return text.match(regex)?.length || 0;
 }
 
-function isOutputTooShortForSource(text) {
-    const stats = getApproximateOutputStats(text);
-    return (
-        stats.tokens < MIN_OUTPUT_TOKENS_FOR_SUBSTANTIAL_SOURCE &&
-        stats.characters < MIN_OUTPUT_CHARS_FOR_SUBSTANTIAL_SOURCE
-    );
-}
-
-function getApproximateOutputStats(text) {
-    const source = String(text || '').trim();
-    return {
-        tokens: source ? source.split(/\s+/).filter(Boolean).length : 0,
-        characters: source.length,
-    };
-}
-
 /**
  * @param {string} reason
  * @returns {{ valid: false, error: Error & { retryable?: boolean } }}
@@ -286,7 +246,7 @@ function rejectIntegrity(reason) {
  * @param {string} rawResult - Raw provider output
  * @param {import('./call-profile.js').CallProfile} profile - Call profile resolved at dispatch
  * @param {import('./notify.js').NotifyAdapter} [notify] - Notify adapter for the language-mix rejection; defaults to the silent adapter
- * @returns {Promise<{ status: 'success', text: string, error: null, repairFeedback: '' } | { status: 'empty' | 'cn-rejected' | 'integrity-rejected' | 'size-rejected', text: string, error: Error & { retryable?: boolean }, repairFeedback: string }>} Rejected attempts keep the cleaned LLM output in `text` for the attempt log; only `empty` has none.
+ * @returns {Promise<{ status: 'success', text: string, error: null, repairFeedback: '' } | { status: 'empty' | 'cn-rejected' | 'integrity-rejected', text: string, error: Error & { retryable?: boolean }, repairFeedback: string }>} Rejected attempts keep the cleaned LLM output in `text` for the attempt log; only `empty` has none.
  */
 export async function processSummarizerResponse(rawResult, profile, notify = silentAdapter) {
     const cleanedResult = cleanSummarizerOutput((rawResult || '').trim());
@@ -319,17 +279,6 @@ export async function processSummarizerResponse(rawResult, profile, notify = sil
             text: chinesePolicyResult.text,
             error: integrityResult.error,
             repairFeedback: '',
-        };
-    }
-
-    const sizeResult = await validateLayer0OutputSize(chinesePolicyResult.text, profile);
-    if (!sizeResult.valid) {
-        warn(sizeResult.error.message);
-        return {
-            status: 'size-rejected',
-            text: chinesePolicyResult.text,
-            error: sizeResult.error,
-            repairFeedback: sizeResult.repairFeedback,
         };
     }
 

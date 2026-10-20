@@ -94,7 +94,7 @@ describe('auditor prompt profile wiring', () => {
         });
         const indexOfSetting = (settingKey) =>
             PROMPT_SETTING_KEYS.findIndex((key) => key.settingKey === settingKey);
-        const promotionIndex = indexOfSetting('promotionRepairPrompt');
+        const promotionIndex = indexOfSetting('promotionUserPrompt');
         const systemIndex = indexOfSetting('auditorSystemPrompt');
         const userIndex = indexOfSetting('auditorUserPrompt');
         expect(promotionIndex).toBeGreaterThanOrEqual(0);

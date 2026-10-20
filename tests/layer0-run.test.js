@@ -261,6 +261,29 @@ describe('Layer 0 run — one Passage', () => {
         expect(saveMetadata).toHaveBeenCalled();
     });
 
+    it('discards provider output that resolves after cancellation', async () => {
+        const controller = new AbortController();
+        const metadata = { summaryception: makeSummaryStore() };
+        installSummaryContext({ chat: buildChat(), metadata });
+        dispatch.mockImplementation(async ({ metadata: dispatchMetadata, signal }) => {
+            controller.abort();
+            expect(signal.aborted).toBe(true);
+            return completedOutcome(dispatchMetadata);
+        });
+
+        await expect(
+            runLayer0(onePassagePlan(), {
+                notify: makeNotifyRecorder(),
+                gate,
+                dispatch,
+                signal: controller.signal,
+            }),
+        ).resolves.toEqual({ status: 'aborted', completed: 0 });
+
+        expect(metadata.summaryception.layers[0]).toEqual([]);
+        expect(dispatch).toHaveBeenCalledTimes(1);
+    });
+
     it('reports failed and restores chat and Layer 0 when post-mutation persistence fails', async () => {
         const chat = buildChat();
         const originalChat = [...chat];

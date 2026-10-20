@@ -72,6 +72,9 @@ export function createSummarizerDispatch({ usage }) {
         liveRequests.add(controller);
         const onExternalAbort = () => controller.abort();
         signal?.addEventListener('abort', onExternalAbort, { once: true });
+        if (signal?.aborted) {
+            onExternalAbort();
+        }
 
         try {
             return await requestRunner.run({

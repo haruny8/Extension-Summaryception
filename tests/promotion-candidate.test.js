@@ -11,9 +11,9 @@ import {
 } from './test-helpers.js';
 
 /**
- * The setup context installs a length-based test tokenizer and a
- * layer0SummaryTokenTarget of 100, so a Layer 0 promotion accepts 40..175
- * tokens and rejects anything outside that band.
+ * The setup context installs a length-based test tokenizer. Promotion length is
+ * prompt guidance only; acceptance still requires a usable narrative and a
+ * reduction in injected memory.
  */
 
 const settings = makeSummarySettings({ layer0SummaryTokenTarget: 100 });
@@ -23,8 +23,8 @@ const shortSourceSettings = makeSummarySettings({ layer0SummaryTokenTarget: 280 
 /** The dispatch stand-in; returns the outcome the real request layer would. */
 const dispatch = vi.fn();
 const GOOD_NARRATIVE = 'word '.repeat(30).trim(); // 149 tokens: inside the band
-const SHORT_NARRATIVE = 'short'; // 5 tokens: under the 40-token floor
-const LONG_NARRATIVE = 'word '.repeat(40).trim(); // 199 tokens: over the 175 hard max
+const SHORT_NARRATIVE = 'short';
+const LONG_NARRATIVE = 'word '.repeat(40).trim();
 function overflowLayers() {
     return Array.from({ length: 4 }, (_, i) => ({
         text: 'x'.repeat(1000),
@@ -81,7 +81,7 @@ describe('generateValidatedPromotion', () => {
         delete globalThis.toastr;
     });
 
-    it('accepts a first-pass promotion that fits the size band and compresses memory', async () => {
+    it('accepts a first-pass promotion that compresses memory', async () => {
         installStore();
         const recorder = makeNotifyRecorder();
         const prepared = makePrepared();
@@ -110,29 +110,16 @@ describe('generateValidatedPromotion', () => {
         ]);
     });
 
-    it('repairs an over-merged output once and accepts the repaired summary', async () => {
+    it('accepts a short promotion without a size repair call', async () => {
         installStore();
         const recorder = makeNotifyRecorder();
         const prepared = makePrepared();
-        dispatch
-            .mockImplementationOnce(outcomeWithProfile(SHORT_NARRATIVE))
-            .mockImplementationOnce(outcomeWithProfile(GOOD_NARRATIVE));
+        dispatch.mockImplementation(outcomeWithProfile(SHORT_NARRATIVE));
 
         const result = await generateValidatedPromotion(prepared, { notify: recorder, dispatch });
 
-        expect(result).toEqual({ text: GOOD_NARRATIVE, sourceMessageIds: ['msg-0', 'msg-2'] });
-        expect(dispatch).toHaveBeenCalledTimes(2);
-        const { storyTxt, contextStr, metadata, notify } = dispatch.mock.calls[1][0];
-        expect(storyTxt).toBe(prepared.storyTxt);
-        expect(contextStr).toBe(prepared.contextStr);
-        expect(notify).toBe(recorder);
-        expect(metadata.promotionRepair).toMatchObject({
-            reason: 'too-short',
-            outputTokens: SHORT_NARRATIVE.length,
-            sourceTokens: 400,
-            rejectedSummary: SHORT_NARRATIVE,
-        });
-        // The repair pass reuses the generation's single notify event.
+        expect(result).toEqual({ text: SHORT_NARRATIVE, sourceMessageIds: ['msg-0', 'msg-2'] });
+        expect(dispatch).toHaveBeenCalledTimes(1);
         expect(recorder.events).toEqual([
             {
                 type: 'transient',
@@ -144,25 +131,18 @@ describe('generateValidatedPromotion', () => {
         ]);
     });
 
-    it('repairs an oversized output once and rejects when the repair still misses', async () => {
+    it('accepts a long promotion without a size repair call', async () => {
         installStore();
         const prepared = makePrepared();
-        dispatch
-            .mockImplementationOnce(outcomeWithProfile(LONG_NARRATIVE))
-            .mockImplementationOnce(outcomeWithProfile(SHORT_NARRATIVE));
+        dispatch.mockImplementation(outcomeWithProfile(LONG_NARRATIVE));
 
         const result = await generateValidatedPromotion(prepared, {
             notify: makeNotifyRecorder(),
             dispatch,
         });
 
-        expect(result).toBeNull();
-        expect(dispatch).toHaveBeenCalledTimes(2);
-        expect(dispatch.mock.calls[1][0].metadata.promotionRepair).toMatchObject({
-            reason: 'compression-ratio',
-            outputTokens: LONG_NARRATIVE.length,
-            hardMaxTokens: 175,
-        });
+        expect(result).toEqual({ text: LONG_NARRATIVE, sourceMessageIds: ['msg-0', 'msg-2'] });
+        expect(dispatch).toHaveBeenCalledTimes(1);
     });
 
     it('rejects a valid-sized promotion that does not compress memory', async () => {
@@ -237,7 +217,7 @@ describe('generateValidatedPromotion', () => {
         });
     }
 
-    it('lowers the promotion floor when the merged sources are smaller than the slider target', async () => {
+    it('accepts a short promotion when the source memory compresses', async () => {
         installStore();
         // 90 tokens clears floor(312 / 3 * 0.4) = 41 but not the slider-anchored 112.
         dispatch.mockImplementation(outcomeWithProfile('x'.repeat(90), shortSourceSettings));
@@ -251,12 +231,10 @@ describe('generateValidatedPromotion', () => {
         expect(dispatch).toHaveBeenCalledTimes(1);
     });
 
-    it('keeps the slider-anchored floor when the merged sources match the slider target', async () => {
+    it('does not retry a short promotion when the source memory compresses', async () => {
         installStore();
         const memoryTokensBefore = { count: 840, estimated: false };
-        dispatch
-            .mockImplementationOnce(outcomeWithProfile('x'.repeat(90), shortSourceSettings))
-            .mockImplementationOnce(outcomeWithProfile('x'.repeat(120), shortSourceSettings));
+        dispatch.mockImplementationOnce(outcomeWithProfile('x'.repeat(90), shortSourceSettings));
 
         const result = await generateValidatedPromotion(
             makePrepared({
@@ -272,31 +250,8 @@ describe('generateValidatedPromotion', () => {
             { notify: makeNotifyRecorder(), dispatch },
         );
 
-        expect(result).toEqual({ text: 'x'.repeat(120), sourceMessageIds: ['msg-0', 'msg-2'] });
-        // 840 / 3 merges = 280 = the slider, so the floor stays floor(280 * 0.4) = 112
-        // and a 90-token output that a lowered floor would accept stays too-short.
-        const { metadata } = dispatch.mock.calls[1][0];
-        expect(metadata.promotionRepair).toMatchObject({ reason: 'too-short', targetTokens: 112 });
-    });
-
-    it('reports the lowered floor in the repair diagnostics for a too-short output', async () => {
-        installStore();
-        dispatch
-            .mockImplementationOnce(outcomeWithProfile('x'.repeat(20), shortSourceSettings))
-            .mockImplementationOnce(outcomeWithProfile('x'.repeat(90), shortSourceSettings));
-
-        const result = await generateValidatedPromotion(makeShortSourcePrepared(), {
-            notify: makeNotifyRecorder(),
-            dispatch,
-        });
-
         expect(result).toEqual({ text: 'x'.repeat(90), sourceMessageIds: ['msg-0', 'msg-2'] });
-        const { metadata } = dispatch.mock.calls[1][0];
-        expect(metadata.promotionRepair).toMatchObject({ reason: 'too-short', targetTokens: 41 });
-        const draft = metadata.promotionRepair.diagnostics.sections.find(
-            (section) => section.id === 'draft',
-        );
-        expect(draft.minimumTokens).toBe(41);
+        expect(dispatch).toHaveBeenCalledTimes(1);
     });
 
     it('applies the deeper-layer ratio to the lowered floor', async () => {

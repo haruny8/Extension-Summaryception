@@ -3,7 +3,6 @@ import {
     AUDITOR_SYSTEM_PROMPT_PRESETS,
     defaultSettings,
     PROMOTION_PROMPT_PRESETS,
-    PROMOTION_REPAIR_PROMPT_PRESETS,
     PROMOTION_SYSTEM_PROMPT_PRESETS,
     PROMPT_PRESETS,
     SUMMARIZER_REPAIR_PROMPT_PRESETS,
@@ -18,11 +17,6 @@ import {
     isProviderRouteSource,
     resolveRouteSource,
 } from '../foundation/connection-routes.js';
-import {
-    getLayer0SummaryRepairCeiling,
-    getLayer0SummaryTokenBounds,
-} from './layer0-compression.js';
-
 const HEALTH_BUCKETS = Object.freeze({
     layer0: 'layer0',
     l1plus: 'l1plus',
@@ -51,7 +45,7 @@ const ROUTE_IDENTITY_KEYS = Object.freeze({
  * @property {'layer0' | 'l1plus'} healthBucket - Primary retry health bucket for this call family
  * @property {CallProfileRoute[]} routes - Ordered failover series; the request runner walks it in order
  * @property {boolean} compression - Whether the prompt carries runtime compression constraints
- * @property {{ target: number, min: number, max: number, repairCeiling: number } | null} sizeGuard - Frozen Layer 0 output-size band; null when the family validates no size
+ * @property {boolean} narrativeEnvelope - Whether the response must use the Layer 0 narrative envelope
  * @property {number | null} easyContextLimit - Frozen Easy Summarizer Context cap; null when the guard does not apply
  * @property {boolean} stripChineseIdeographs - Whether the CN ideograph policy strips Han-heavy output
  * @property {boolean} promotionConstraints - Whether the prompt carries the Layer 1+ promotion constraint block
@@ -86,7 +80,6 @@ const ROUTE_IDENTITY_KEYS = Object.freeze({
  * @property {number} [overflowMemoryLimit] - Configured memory count limit for the layer
  * @property {number} [overflowTokens] - Token count in the overflowing layer
  * @property {number} [overflowTokenQuota] - Token quota for the overflowing layer
- * @property {{ reason?: string, outputTokens?: number, targetTokens?: number, hardMaxTokens?: number, requiredMaxTokens?: number, sourceTokens?: number, rejectedSummary?: string, diagnostics?: object }} [promotionRepair] - Promotion repair feedback of this dispatch
  */
 
 /**
@@ -108,7 +101,6 @@ const ROUTE_IDENTITY_KEYS = Object.freeze({
  * @property {number} [overflowMemoryLimit] - Configured memory count limit for the layer
  * @property {number} [overflowTokens] - Token count in the overflowing layer
  * @property {number} [overflowTokenQuota] - Token quota for the overflowing layer
- * @property {{ reason?: string, outputTokens?: number, targetTokens?: number, hardMaxTokens?: number, requiredMaxTokens?: number, sourceTokens?: number, rejectedSummary?: string, diagnostics?: object }} [promotionRepair] - Promotion repair feedback of this dispatch
  */
 
 /**
@@ -145,26 +137,12 @@ export function resolveCallProfile(settings, call = {}) {
             healthBucket: isPromotion ? HEALTH_BUCKETS.l1plus : HEALTH_BUCKETS.layer0,
             routes: resolveRouteSeries(settings, call.kind),
             compression: isLayer0Family || isPromotion,
-            sizeGuard: isLayer0Family ? buildLayer0SizeGuard(settings) : null,
+            narrativeEnvelope: isLayer0Family,
             easyContextLimit: resolveEasyContextLimit(settings),
             stripChineseIdeographs: Boolean(settings.stripChineseIdeographs),
             promotionConstraints: isPromotion,
         },
         provenance: buildProvenance(call),
-    };
-}
-
-/**
- * Freeze the Layer 0 output-size band: bounds and the narrow repair ceiling
- * resolve together with the guard at dispatch, so retries never re-read the
- * live setting (ADR-0023).
- * @param {ExtensionSettings} settings
- * @returns {{ target: number, min: number, max: number, repairCeiling: number }}
- */
-function buildLayer0SizeGuard(settings) {
-    return {
-        ...getLayer0SummaryTokenBounds(settings),
-        repairCeiling: getLayer0SummaryRepairCeiling(settings),
     };
 }
 
@@ -219,19 +197,12 @@ function resolveSystemPrompt(settings, kind) {
  */
 function resolveUserPromptTemplate(settings, call) {
     if (call.kind === 'promotion') {
-        return call.promotionRepair
-            ? resolvePromptSetting(settings, {
-                  presetKey: 'promotionRepairPromptPreset',
-                  text: settings.promotionRepairPrompt,
-                  presets: PROMOTION_REPAIR_PROMPT_PRESETS,
-                  fallback: defaultSettings.promotionRepairPrompt,
-              })
-            : resolvePromptSetting(settings, {
-                  presetKey: 'promotionPromptPreset',
-                  text: settings.promotionUserPrompt,
-                  presets: PROMOTION_PROMPT_PRESETS,
-                  fallback: defaultSettings.promotionUserPrompt,
-              });
+        return resolvePromptSetting(settings, {
+            presetKey: 'promotionPromptPreset',
+            text: settings.promotionUserPrompt,
+            presets: PROMOTION_PROMPT_PRESETS,
+            fallback: defaultSettings.promotionUserPrompt,
+        });
     }
     if (call.kind === 'auditor') {
         return resolvePromptSetting(settings, {
@@ -331,7 +302,6 @@ function buildProvenance(call) {
         'overflowMemoryLimit',
         'overflowTokens',
         'overflowTokenQuota',
-        'promotionRepair',
     ]) {
         if (call[key] !== undefined) {
             provenance[key] = call[key];

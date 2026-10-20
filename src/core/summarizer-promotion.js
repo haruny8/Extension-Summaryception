@@ -20,10 +20,19 @@ import { countTextTokens } from './token-count.js';
  * @param {import('./notify.js').NotifyAdapter | undefined} p.notify - Notify adapter threaded from the drain; runs without one stay silent.
  * @param {import('./foreground-gate.js').ForegroundGate} p.gate - Foreground Gate the merge commit crosses.
  * @param {import('./summarizer-request.js').SummarizerDispatch['call']} p.dispatch - Summarizer Dispatch the merge requests through.
- * @returns {Promise<boolean>} Whether the promotion merged and committed.
+ * @param {AbortSignal} [p.signal] - Aborts promotion requests and commits.
+ * @returns {Promise<boolean | 'aborted'>} Whether the promotion merged, committed, or was aborted.
  */
-async function attemptPromotion(plan, s, { notify, gate, dispatch }) {
-    return await mergeLayerSnippets({ plan, candidate: plan.candidate, s, notify, gate, dispatch });
+async function attemptPromotion(plan, s, { notify, gate, dispatch, signal }) {
+    return await mergeLayerSnippets({
+        plan,
+        candidate: plan.candidate,
+        s,
+        notify,
+        gate,
+        dispatch,
+        signal,
+    });
 }
 
 /**
@@ -34,9 +43,10 @@ async function attemptPromotion(plan, s, { notify, gate, dispatch }) {
  * @param {import('./notify.js').NotifyAdapter} [p.notify] - Notify adapter; runs without one stay silent.
  * @param {import('./foreground-gate.js').ForegroundGate} p.gate - Foreground Gate the merge commit crosses.
  * @param {import('./summarizer-request.js').SummarizerDispatch['call']} p.dispatch - Summarizer Dispatch the merge requests through.
- * @returns {Promise<boolean>}
+ * @param {AbortSignal} [p.signal]
+ * @returns {Promise<boolean | 'aborted'>}
  */
-async function mergeLayerSnippets({ plan, candidate, s, notify, gate, dispatch }) {
+async function mergeLayerSnippets({ plan, candidate, s, notify, gate, dispatch, signal }) {
     const outcome = await prepareLayerPromotion({
         layerIndex: candidate.layerIndex,
         settings: s,
@@ -53,9 +63,10 @@ async function mergeLayerSnippets({ plan, candidate, s, notify, gate, dispatch }
     const promotedSnippet = await generateValidatedPromotion(outcome.prepared, {
         notify,
         dispatch,
+        signal,
     });
     if (!promotedSnippet) {
-        return false;
+        return signal?.aborted ? 'aborted' : false;
     }
 
     return await commitValidatedPromotion({
@@ -63,6 +74,7 @@ async function mergeLayerSnippets({ plan, candidate, s, notify, gate, dispatch }
         snapshot: outcome.snapshot,
         promotedSnippet,
         gate,
+        signal,
     });
 }
 
@@ -144,18 +156,25 @@ async function prepareLayerPromotion({
     };
 }
 
-async function commitValidatedPromotion({ prepared, snapshot, promotedSnippet, gate }) {
+async function commitValidatedPromotion({ prepared, snapshot, promotedSnippet, gate, signal }) {
+    let aborted = false;
     const result = await gate.commitWhenSafe({
         kind: 'promotion-merge',
-        apply: async () =>
-            applyMergePromotion({
+        apply: async () => {
+            if (signal?.aborted) {
+                aborted = true;
+                return true;
+            }
+            return await applyMergePromotion({
                 snapshot,
                 layerIndex: prepared.layerIndex,
                 promotedSnippet,
-            }),
+                signal,
+            });
+        },
     });
 
-    return result !== 'stale';
+    return aborted ? 'aborted' : result !== 'stale';
 }
 
 /**
@@ -178,9 +197,13 @@ function capturePromotionSnapshot(layerIndex) {
  * @param {object} p.snapshot
  * @param {number} p.layerIndex
  * @param {object} p.promotedSnippet
+ * @param {AbortSignal} [p.signal]
  * @returns {Promise<boolean>}
  */
-async function applyMergePromotion({ snapshot, layerIndex, promotedSnippet }) {
+async function applyMergePromotion({ snapshot, layerIndex, promotedSnippet, signal }) {
+    if (signal?.aborted) {
+        return true;
+    }
     if (!isSnapshotStoreCurrent(snapshot, getContext(), getChatStore())) {
         return false;
     }
@@ -220,18 +243,23 @@ async function applyMergePromotion({ snapshot, layerIndex, promotedSnippet }) {
  * @param {import('./notify.js').NotifyAdapter} [options.notify] - Notify adapter threaded from the engine; runs without one stay silent.
  * @param {import('./foreground-gate.js').ForegroundGate} options.gate - Foreground Gate the drain asks before and after every attempt.
  * @param {import('./summarizer-request.js').SummarizerDispatch['call']} options.dispatch - Summarizer Dispatch every promotion request goes through.
- * @returns {Promise<{status: 'completed', attempts: number} | {status: 'blocked', attempts: number} | {status: 'failed', attempts: number}>} Run status and the number of promotions attempted.
+ * @param {AbortSignal} [options.signal] - Aborts promotion requests and commits.
+ * @returns {Promise<{status: 'completed' | 'aborted', attempts: number} | {status: 'blocked', attempts: number} | {status: 'failed', attempts: number}>} Run status and the number of promotions attempted.
  */
 export async function drainPromotionOverflow({
     maxConsecutiveFailures = Infinity,
     notify,
     gate,
     dispatch,
+    signal,
 }) {
     const s = getEffectiveSettings();
     let failures = 0;
     let attempts = 0;
     for (;;) {
+        if (signal?.aborted) {
+            return { status: 'aborted', attempts };
+        }
         const plan = await buildPromotionPlan(getChatStore(), s);
         if (!plan.candidate || plan.retentionFloorViolated) {
             return { status: 'completed', attempts };
@@ -239,8 +267,11 @@ export async function drainPromotionOverflow({
         if ((await gate.promptWorkGate('promotion drain')) === 'blocked') {
             return { status: 'blocked', attempts };
         }
-        const promoted = await attemptPromotion(plan, s, { notify, gate, dispatch });
+        const promoted = await attemptPromotion(plan, s, { notify, gate, dispatch, signal });
         attempts++;
+        if (promoted === 'aborted' || signal?.aborted) {
+            return { status: 'aborted', attempts };
+        }
         if ((await gate.promptWorkGate('promotion drain')) === 'blocked') {
             return { status: 'blocked', attempts };
         }

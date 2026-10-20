@@ -2,7 +2,6 @@ import {
     AUDITOR_PROMPT_PRESETS,
     AUDITOR_SYSTEM_PROMPT_PRESETS,
     PROMOTION_PROMPT_PRESETS,
-    PROMOTION_REPAIR_PROMPT_PRESETS,
     PROMOTION_SYSTEM_PROMPT_PRESETS,
     PROMPT_PRESETS,
     PROMPT_SETTING_KEYS,
@@ -39,11 +38,6 @@ const PROMPT_FIELD_UI = {
         presetSelect: '#sc_promotion_prompt_preset',
         textarea: '#sc_promotion_user_prompt',
         presets: PROMOTION_PROMPT_PRESETS,
-    },
-    promotionRepairPromptPreset: {
-        presetSelect: '#sc_promotion_repair_prompt_preset',
-        textarea: '#sc_promotion_repair_prompt',
-        presets: PROMOTION_REPAIR_PROMPT_PRESETS,
     },
     auditorSystemPromptPreset: {
         presetSelect: '#sc_auditor_system_prompt_preset',

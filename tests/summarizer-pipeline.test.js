@@ -63,7 +63,6 @@ describe('buildSummarizerPipelineInput', () => {
             defaultSettings.summarizerUserPrompt,
             defaultSettings.summarizerRepairPrompt,
             defaultSettings.promotionUserPrompt,
-            defaultSettings.promotionRepairPrompt,
             defaultSettings.auditorUserPrompt,
         ];
 

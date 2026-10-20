@@ -21,6 +21,7 @@ import {
 
 /** @type {import('../core/summarizer-engine.js').ManualRunnerDeps} */
 let manualRunnerDeps;
+let activeManualCancel;
 
 /**
  * @param {AbortController} controller
@@ -44,14 +45,18 @@ const MANUAL_RUN_BUSY_HTML = '<i class="fa-solid fa-spinner fa-spin"></i><span>W
  */
 async function runManualSummarization($button, idleHtml, { run, notify, view }) {
     const controller = new AbortController();
+    const cancel = () => {
+        if (!controller.signal.aborted) {
+            cancelManualRun(controller);
+        }
+    };
     let progressToast = null;
     const options = {
         signal: controller.signal,
         notify,
         onStart: (progress) => {
-            progressToast = createManualProgressToast(progress, view, () =>
-                cancelManualRun(controller),
-            );
+            activeManualCancel = cancel;
+            progressToast = createManualProgressToast(progress, view, cancel);
         },
         onProgress: (progress) => updateManualProgressToast(progressToast, progress, view),
     };
@@ -68,6 +73,9 @@ async function runManualSummarization($button, idleHtml, { run, notify, view }) 
         });
         return;
     } finally {
+        if (activeManualCancel === cancel) {
+            activeManualCancel = undefined;
+        }
         clearManualProgressToast(progressToast);
         if ($button) {
             $button.prop('disabled', false).html(idleHtml);
@@ -234,4 +242,12 @@ export function bindManualRunControls({ notify, manualRunnerDeps: runnerDeps }) 
     });
     $(document).on('click', '#sc_stop_summarize, #sc_easy_stop_summarize', onStopSummarize);
     $(document).on('click', '#sc_resume_summarize, #sc_easy_resume_summarize', onResumeSummarize);
+    $(document).on('click', '.sc-manual-progress-cancel', function (event) {
+        event.preventDefault?.();
+        event.stopPropagation?.();
+        activeManualCancel?.();
+    });
+    $(document).on('click', '.sc-manual-progress-toast .toast-close-button', function () {
+        activeManualCancel?.();
+    });
 }

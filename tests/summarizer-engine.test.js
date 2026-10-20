@@ -189,6 +189,56 @@ describe('manual run progress callbacks', () => {
         expect(outcome.status).toBe('aborted');
         expect(layer0Mocks.runLayer0).not.toHaveBeenCalled();
     });
+
+    it('passes cancellation into the active batch and does not count it as failed', async () => {
+        stubRoutePlan(routeMocks.buildForceSummaryRoutePlan, forceRoutePlan());
+        const controller = new AbortController();
+        layer0Mocks.runLayer0.mockImplementation(async (_plan, options) => {
+            expect(options.signal).toBe(controller.signal);
+            controller.abort();
+            return { status: 'aborted', completed: 0 };
+        });
+
+        const outcome = await runManual(makeDeps(), ELASTIC_STRATEGIES.FORCE, {
+            signal: controller.signal,
+        });
+
+        expect(outcome).toEqual({
+            status: 'aborted',
+            completed: 0,
+            failed: 0,
+            totalBatches: 1,
+        });
+    });
+
+    it('resumes from the boundary committed before cancellation', async () => {
+        stubRoutePlan(routeMocks.buildForceSummaryRoutePlan, forceRoutePlan());
+        const controller = new AbortController();
+        layer0Mocks.runLayer0
+            .mockImplementationOnce(async () => {
+                boundary += 2;
+                controller.abort();
+                return { status: 'completed', completed: 1 };
+            })
+            .mockImplementationOnce(async () => {
+                boundary = TARGET_INDEX;
+                return { status: 'completed', completed: 1 };
+            });
+
+        const firstOutcome = await runManual(makeDeps(), ELASTIC_STRATEGIES.FORCE, {
+            signal: controller.signal,
+        });
+
+        expect(firstOutcome.status).toBe('aborted');
+        expect(firstOutcome.completed).toBe(1);
+        expect(boundary).toBe(2);
+
+        const resumedOutcome = await runManual(makeDeps(), ELASTIC_STRATEGIES.FORCE, {});
+
+        expect(layer0Mocks.runLayer0).toHaveBeenCalledTimes(2);
+        expect(resumedOutcome.status).toBe('completed');
+        expect(boundary).toBe(TARGET_INDEX);
+    });
 });
 
 describe('manual run work gate', () => {

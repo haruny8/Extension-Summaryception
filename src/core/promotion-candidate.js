@@ -2,24 +2,17 @@ import { NOTIFY_EVENTS } from '../foundation/constants.js';
 import { warn } from '../foundation/logger.js';
 import { getChatStore } from '../foundation/chat-store.js';
 import { buildInjection, measureInjection } from './memory-injection.js';
-import { getLayer0SummaryTokenTarget } from './layer0-compression.js';
-import {
-    buildHypotheticalLayersAfterPromotion,
-    getPromotionSummaryTokenHardMax,
-    getPromotionSummaryTokenTarget,
-} from './promotion-planner.js';
-import { buildRepairDiagnostics } from './repair-diagnostics.js';
+import { buildHypotheticalLayersAfterPromotion } from './promotion-planner.js';
 import {
     formatSnippetAnchor,
     parseSnippet,
     stripLeadingSnippetAnchor,
 } from './snippet-metadata.js';
-import { countTextTokens, formatTokenValue } from './token-count.js';
+import { formatTokenValue } from './token-count.js';
 
 /**
- * Generate one validated promotion snippet: request the merge, validate size
- * and integrity, run at most one section-aware repair pass, and require the
- * result to compress the live store's memory.
+ * Generate one validated promotion snippet: request the merge, validate its
+ * narrative shape, and require the result to compress the live store's memory.
  * @param {object} prepared - Request-facing promotion fields (no snapshot).
  * @param {number} prepared.layerIndex - Promotion SOURCE layer.
  * @param {number} prepared.mergeCount
@@ -34,9 +27,10 @@ import { countTextTokens, formatTokenValue } from './token-count.js';
  * @param {object} p
  * @param {import('./notify.js').NotifyAdapter} [p.notify] - Notify adapter; runs without one stay silent.
  * @param {import('./summarizer-request.js').SummarizerDispatch['call']} p.dispatch - Summarizer Dispatch both requests go through.
+ * @param {AbortSignal} [p.signal] - Aborts the promotion request.
  * @returns {Promise<object | null>} The promoted snippet, or null when rejected.
  */
-export async function generateValidatedPromotion(prepared, { notify, dispatch }) {
+export async function generateValidatedPromotion(prepared, { notify, dispatch, signal }) {
     notify?.transient({
         kind: NOTIFY_EVENTS.PROMOTION_STARTED,
         mergedCount: prepared.toMerge.length,
@@ -53,31 +47,20 @@ export async function generateValidatedPromotion(prepared, { notify, dispatch })
         contextStr: prepared.contextStr,
         metadata: prepared.promotionMetadata,
         notify,
+        signal,
     });
-    if (metaOutcome.status !== 'completed') {
+    if (metaOutcome.status !== 'completed' || signal?.aborted) {
         return null;
     }
 
     return await buildValidatedPromotionSnippet({
         prepared,
         narrative: metaOutcome.text,
-        notify,
-        dispatch,
     });
 }
 
-async function buildValidatedPromotionSnippet({ prepared, narrative, notify, dispatch }) {
-    const {
-        layerIndex,
-        mergeCount,
-        settings,
-        sourceNarrativeText,
-        memoryTokensBefore: sourceTokens,
-        storyTxt,
-        contextStr,
-        promotionMetadata: metadata,
-        promotedMetadata,
-    } = prepared;
+async function buildValidatedPromotionSnippet({ prepared, narrative }) {
+    const { layerIndex, mergeCount, settings, promotedMetadata } = prepared;
     const firstCandidate = buildPromotionCandidate(narrative, promotedMetadata);
     if (!firstCandidate) {
         return null;
@@ -88,57 +71,12 @@ async function buildValidatedPromotionSnippet({ prepared, narrative, notify, dis
         mergeCount,
         promotedSnippet: firstCandidate,
         settings,
-        sourceNarrativeText,
-        sourceTokens,
     });
     if (firstValidation.valid) {
         return firstCandidate;
     }
 
-    if (
-        (firstValidation.reason !== 'compression-ratio' &&
-            firstValidation.reason !== 'too-short') ||
-        !firstValidation.outputTokens ||
-        !firstValidation.sourceTokens
-    ) {
-        return null;
-    }
-
-    const repairOutcome = await dispatch({
-        storyTxt,
-        contextStr,
-        metadata: {
-            ...metadata,
-            promotionRepair: {
-                reason: firstValidation.reason,
-                outputTokens: firstValidation.outputTokens.count,
-                targetTokens: firstValidation.targetTokens,
-                hardMaxTokens: firstValidation.hardMaxTokens,
-                requiredMaxTokens: firstValidation.requiredMaxTokens,
-                sourceTokens: firstValidation.sourceTokens.count,
-                rejectedSummary: firstCandidate.text,
-                diagnostics: firstValidation.diagnostics,
-            },
-        },
-        notify,
-    });
-    if (repairOutcome.status !== 'completed') {
-        return null;
-    }
-    const repairedCandidate = buildPromotionCandidate(repairOutcome.text, promotedMetadata);
-    if (!repairedCandidate) {
-        return null;
-    }
-
-    const repairedValidation = await validatePromotionCandidate({
-        layerIndex,
-        mergeCount,
-        promotedSnippet: repairedCandidate,
-        settings,
-        sourceNarrativeText,
-        sourceTokens,
-    });
-    return repairedValidation.valid ? repairedCandidate : null;
+    return null;
 }
 
 function buildPromotionCandidate(narrative, promotedMetadata) {
@@ -155,59 +93,8 @@ function buildPromotionCandidate(narrative, promotedMetadata) {
     return { text: cleanSummary, ...promotedMetadata };
 }
 
-async function validatePromotionCandidate({
-    layerIndex,
-    mergeCount,
-    promotedSnippet,
-    settings,
-    sourceNarrativeText,
-    sourceTokens: providedSourceTokens,
-}) {
-    const sourceTokens = providedSourceTokens || (await countTextTokens(sourceNarrativeText));
-    const sizeValidation = await validatePromotionSize({
-        layerIndex,
-        mergeCount,
-        promotedSnippet,
-        settings,
-        sourceTokens,
-    });
-    if (!sizeValidation.valid) {
-        return sizeValidation;
-    }
+async function validatePromotionCandidate({ layerIndex, mergeCount, promotedSnippet, settings }) {
     return validatePromotionCompressesMemory({ layerIndex, mergeCount, promotedSnippet, settings });
-}
-
-async function validatePromotionSize({
-    layerIndex,
-    mergeCount,
-    promotedSnippet,
-    settings,
-    sourceTokens,
-}) {
-    const outputTokens = await countTextTokens(promotedSnippet.text);
-    const sliderTarget = getLayer0SummaryTokenTarget(settings);
-    // Merged sources smaller than one slider-sized summary shrink the
-    // acceptance floor with them, so a faithful fold is not rejected as
-    // over-merged (issue #44).
-    const effectiveTarget = Math.min(sliderTarget, sourceTokens.count / mergeCount);
-    const minTokens = getPromotionSummaryTokenTarget({ layerIndex, targetTokens: effectiveTarget });
-    const hardMaxTokens = getPromotionSummaryTokenHardMax({
-        layerIndex,
-        targetTokens: sliderTarget,
-    });
-    const tooShort = outputTokens.count < minTokens;
-    if (outputTokens.count > hardMaxTokens || tooShort) {
-        return rejectPromotionSize({
-            layerIndex,
-            promotedSnippet,
-            sourceTokens,
-            outputTokens,
-            minTokens,
-            hardMaxTokens,
-            tooShort,
-        });
-    }
-    return { valid: true };
 }
 
 async function validatePromotionCompressesMemory({
@@ -240,58 +127,4 @@ async function validatePromotionCompressesMemory({
             )} tokens).`,
     );
     return { valid: false, reason: 'memory-total' };
-}
-
-function rejectPromotionSize({
-    layerIndex,
-    promotedSnippet,
-    sourceTokens,
-    outputTokens,
-    minTokens,
-    hardMaxTokens,
-    tooShort,
-}) {
-    const diagnostics = buildRepairDiagnostics({
-        scope: 'Layer 1+ promotion',
-        totalTokens: outputTokens.count,
-        sections: [
-            {
-                id: 'draft',
-                label: '<narrative>',
-                actualTokens: outputTokens.count,
-                targetTokens: minTokens,
-                hardMaxTokens,
-                ...(tooShort ? { minimumTokens: minTokens } : {}),
-                text: promotedSnippet.text,
-                repairInstruction: tooShort
-                    ? 'expand the fold: it over-merged; restore the dropped durable beats'
-                    : 'rewrite as macro-level prose only; remove dialogue, scene replay, micro-actions, and transient detail',
-                preservationInstruction:
-                    'retain only macro-level durable chronology and continuity',
-            },
-        ],
-        rejectedDraft: promotedSnippet.text,
-    });
-    warn(
-        tooShort
-            ? `Promotion L${layerIndex} rejected: output under the over-merge floor ` +
-                  `(${formatTokenValue(sourceTokens.count, sourceTokens.estimated)}->` +
-                  `${formatTokenValue(outputTokens.count, outputTokens.estimated)} tokens; ` +
-                  `minimum ${formatTokenValue(minTokens, sourceTokens.estimated)}).`
-            : `Promotion L${layerIndex} rejected: output exceeded the compression hard maximum ` +
-                  `(${formatTokenValue(sourceTokens.count, sourceTokens.estimated)}->` +
-                  `${formatTokenValue(outputTokens.count, outputTokens.estimated)} tokens; ` +
-                  `target ${formatTokenValue(minTokens, sourceTokens.estimated)}, ` +
-                  `hard maximum ${formatTokenValue(hardMaxTokens, sourceTokens.estimated)}).`,
-    );
-    return {
-        valid: false,
-        reason: tooShort ? 'too-short' : 'compression-ratio',
-        sourceTokens,
-        outputTokens,
-        targetTokens: minTokens,
-        hardMaxTokens,
-        requiredMaxTokens: hardMaxTokens,
-        diagnostics,
-    };
 }

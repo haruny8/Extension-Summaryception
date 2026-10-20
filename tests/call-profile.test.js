@@ -10,7 +10,6 @@ describe('resolveCallProfile prompts', () => {
         summarizerUserPrompt: 'L0-USER',
         promotionSystemPrompt: 'PROMO-SYS',
         promotionUserPrompt: 'PROMO-USER',
-        promotionRepairPrompt: 'PROMO-REPAIR',
         auditorSystemPrompt: 'AUD-SYS',
         auditorUserPrompt: 'AUD-USER',
         summarizerRepairPrompt: 'L0-REPAIR',
@@ -19,7 +18,6 @@ describe('resolveCallProfile prompts', () => {
         summarizerRepairPromptPreset: 'custom',
         promotionSystemPromptPreset: 'custom',
         promotionPromptPreset: 'custom',
-        promotionRepairPromptPreset: 'custom',
         auditorSystemPromptPreset: 'custom',
         auditorPromptPreset: 'custom',
     });
@@ -40,17 +38,6 @@ describe('resolveCallProfile prompts', () => {
         const auditor = resolveCallProfile(promptSettings, { kind: 'auditor' }).policy;
         expect(auditor.systemPrompt).toBe('AUD-SYS');
         expect(auditor.userPromptTemplate).toBe('AUD-USER');
-    });
-
-    it('picks the promotion repair prompt only for a promotion repair dispatch', () => {
-        const policy = resolveCallProfile(promptSettings, {
-            kind: 'promotion',
-            promotionRepair: { rejectedSummary: 'draft' },
-        }).policy;
-        expect(policy.userPromptTemplate).toBe('PROMO-REPAIR');
-
-        const plain = resolveCallProfile(promptSettings, { kind: 'promotion' }).policy;
-        expect(plain.userPromptTemplate).toBe('PROMO-USER');
     });
 
     it('falls back to the default prompts for malformed non-string settings', () => {
@@ -297,27 +284,24 @@ describe('resolveCallProfile guard flags', () => {
         ['regenerate', true, true],
         ['promotion', true, false],
         ['auditor', false, false],
-    ])('resolves compression and the frozen size band for %s', (kind, compression, guarded) => {
-        const policy = resolveCallProfile(makeSummarySettings({ layer0SummaryTokenTarget: 300 }), {
-            kind,
-        }).policy;
-        expect(policy.compression).toBe(compression);
-        if (guarded) {
-            expect(policy.sizeGuard).toEqual({
-                target: 300,
-                min: 50,
-                max: 450,
-                repairCeiling: 495,
-            });
-        } else {
-            expect(policy.sizeGuard).toBeNull();
-        }
-    });
+    ])(
+        'resolves compression and the structural envelope policy for %s',
+        (kind, compression, guarded) => {
+            const policy = resolveCallProfile(
+                makeSummarySettings({ layer0SummaryTokenTarget: 300 }),
+                {
+                    kind,
+                },
+            ).policy;
+            expect(policy.compression).toBe(compression);
+            expect(policy.narrativeEnvelope).toBe(guarded);
+        },
+    );
 
-    it('leaves compression and the size band unset for uncategorized calls', () => {
+    it('leaves compression and the structural envelope unset for uncategorized calls', () => {
         const policy = resolveCallProfile(makeSummarySettings(), {}).policy;
         expect(policy.compression).toBe(false);
-        expect(policy.sizeGuard).toBeNull();
+        expect(policy.narrativeEnvelope).toBe(false);
     });
 
     it('freezes the Easy context limit only for Easy mode with a positive finite cap', () => {
@@ -413,8 +397,7 @@ describe('resolveCallProfile provenance', () => {
         expect(provenance.sourceTokensBeforeEstimated).toBe(true);
     });
 
-    it('keeps promotion overflow and repair payloads verbatim', () => {
-        const promotionRepair = { rejectedSummary: 'draft', outputTokens: 200 };
+    it('keeps promotion overflow payloads verbatim', () => {
         const { provenance } = resolveCallProfile(makeSummarySettings(), {
             kind: 'promotion',
             layerIndex: 2,
@@ -426,7 +409,6 @@ describe('resolveCallProfile provenance', () => {
             overflowMemoryLimit: 24,
             overflowTokens: 4000,
             overflowTokenQuota: 3000,
-            promotionRepair,
         });
         expect(provenance.layerIndex).toBe(2);
         expect(provenance.mergedSnippetCount).toBe(4);
@@ -436,7 +418,6 @@ describe('resolveCallProfile provenance', () => {
         expect(provenance.overflowMemoryLimit).toBe(24);
         expect(provenance.overflowTokens).toBe(4000);
         expect(provenance.overflowTokenQuota).toBe(3000);
-        expect(provenance.promotionRepair).toBe(promotionRepair);
     });
 
     it('carries provenance keys and never leaks route or repair flags', () => {

@@ -78,7 +78,7 @@ describe('RequestRunner.run outcomes', () => {
         expect(connectionMocks.sendSummarizerRequest).toHaveBeenCalledTimes(2);
         expect(outcome.profile).toBe(request.profile);
         expect(outcome.profile.policy.easyContextLimit).toBeNull();
-        expect(outcome.profile.policy.sizeGuard.target).toBe(300);
+        expect(outcome.profile.policy.narrativeEnvelope).toBe(true);
     });
 
     it('returns aborted for an already-aborted signal without attempting', async () => {

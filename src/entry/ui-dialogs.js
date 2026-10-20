@@ -166,15 +166,25 @@ export function manualRunView(strategy) {
  * @param {import('../core/summarizer-engine.js').ManualRunProgress} progress
  * @param {ManualRunView} view - Display policy of the running strategy.
  * @param {() => void} onCancel - Cancels the run from the toast's close button.
- * @returns {unknown}
+ * @returns {void}
  */
 export function createManualProgressToast(progress, view, onCancel) {
-    return toastr.info(getProgressText(progress, view.label), view.title, {
+    let cancelled = false;
+    const cancel = () => {
+        if (cancelled) {
+            return;
+        }
+        cancelled = true;
+        onCancel();
+    };
+    toastr.info(getProgressMarkup(progress, view.label), view.title, {
         timeOut: 0,
         extendedTimeOut: 0,
         tapToDismiss: false,
         closeButton: true,
-        onCloseClick: onCancel,
+        toastClass: 'toast sc-manual-progress-toast',
+        onCloseClick: cancel,
+        escapeHtml: false,
     });
 }
 
@@ -185,9 +195,15 @@ export function createManualProgressToast(progress, view, onCancel) {
  * @returns {void}
  */
 export function updateManualProgressToast(progressToast, progress, view) {
-    $(progressToast)
-        .find('.toast-message')
-        .text(`${getProgressText(progress, view.label)}\nClick x to pause`);
+    $(progressToast).find('.toast-message').html(getProgressMarkup(progress, view.label));
+}
+
+function getProgressMarkup(progress, label) {
+    return (
+        `${getProgressText(progress, label)}<br>` +
+        '<button type="button" class="menu_button sc-manual-progress-cancel">' +
+        '<i class="fa-solid fa-xmark"></i><span>Cancel</span></button>'
+    );
 }
 
 /**

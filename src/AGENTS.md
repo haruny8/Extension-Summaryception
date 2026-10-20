@@ -23,8 +23,8 @@
 - The drain asks the Foreground Gate before and after every attempt.
 - Auto cycles tolerate one consecutive promotion failure; manual runs tolerate three.
 - Promotion carries the last known scene time from the promoted span.
-- Generated output outside its layer bounds triggers section-aware repair.
-- Repair retries only the failed section.
+- Generated output must satisfy its structural envelope before storage.
+- Promotion output is accepted at any length when it reduces injected memory; prompt guidance handles compression.
 - Narrative dates omit years, ISO syntax, and clock lead-ins.
 - Re-derive the current_date_time weekday from the ISO date in UTC.
 - Stable message identifiers own snippet provenance and hiding.
@@ -44,7 +44,7 @@
 - Prompt sections have a fixed order: input, schema, task rules, critical rules, trigger.
 - The bare imperative trigger is the final prompt line.
 - Insert dynamic budget and repair blocks above the trigger.
-- Budget hints use countable units such as sentences and lines.
+- Budget hints state advisory targets; structural validation does not enforce output length.
 - State schema content follows enabled state categories.
 - Keep token limits out of state category definitions.
 - Strip configured output patterns before parsing.

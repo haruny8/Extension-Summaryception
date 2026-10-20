@@ -421,8 +421,6 @@ function logProcessedAttemptFailure(status) {
         debug('Empty response from LLM, treating as retryable');
     } else if (status === 'integrity-rejected') {
         debug('Summarizer output failed integrity validation, treating as retryable');
-    } else if (status === 'size-rejected') {
-        debug('Summarizer output failed size validation, treating as retryable');
     }
 }
 

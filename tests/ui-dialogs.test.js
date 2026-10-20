@@ -53,21 +53,25 @@ describe('manual run display policy', () => {
     });
 
     it('renders a progress toast from the strategy view', () => {
+        const onCancel = vi.fn();
         createManualProgressToast(
             { completed: 1, failed: 0, totalBatches: 3 },
             manualRunView(ELASTIC_STRATEGIES.FORCE),
-            () => {},
+            onCancel,
         );
 
         const [message, title, options] = globalThis.toastr.info.mock.calls[0];
         expect(title).toBe('Summaryception Catch-Up');
-        expect(message).toBe('Processing: 1 / 3 batches (33%)');
-        expect(options.timeOut).toBe(0);
+        expect(message).toContain('Processing: 1 / 3 batches (33%)');
+        expect(message).toContain('sc-manual-progress-cancel');
+        expect(options).toMatchObject({ timeOut: 0, closeButton: true, escapeHtml: false });
+        options.onCloseClick();
+        expect(onCancel).toHaveBeenCalledTimes(1);
     });
 
     it('rewords an open progress toast from the strategy view', () => {
-        const text = vi.fn();
-        globalThis.$ = vi.fn(() => ({ find: () => ({ text }) }));
+        const html = vi.fn();
+        globalThis.$ = vi.fn(() => ({ find: () => ({ html }) }));
 
         updateManualProgressToast(
             {},
@@ -75,9 +79,10 @@ describe('manual run display policy', () => {
             manualRunView(ELASTIC_STRATEGIES.SLOP),
         );
 
-        expect(text).toHaveBeenCalledWith(
-            'Breaking slop: 2 / 3 batches (67%) | 1 failed\nClick x to pause',
+        expect(html).toHaveBeenCalledWith(
+            expect.stringContaining('Breaking slop: 2 / 3 batches (67%) | 1 failed'),
         );
+        expect(html.mock.calls[0][0]).toContain('sc-manual-progress-cancel');
     });
 });
 

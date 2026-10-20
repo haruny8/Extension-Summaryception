@@ -25,14 +25,15 @@ import {
  * @param {import('./summarization-routes.js').SummaryRoutePlan} routePlan
  * @param {object} p
  * @param {import('./notify.js').NotifyAdapter | undefined} p.notify - Notify adapter threaded from the engine; a run without one stays silent.
+ * @param {AbortSignal} [p.signal] - Aborts requests and prevents their output from being committed.
  * @param {import('./foreground-gate.js').ForegroundGate} p.gate - Foreground Gate the commit and the Ghosting repair cross.
  * @param {import('./summarizer-request.js').SummarizerDispatch['call']} p.dispatch - Summarizer Dispatch every passage request goes through.
  * @returns {Promise<import('./run-outcome.js').SummarizationRunOutcome>}
  */
-export async function runLayer0(routePlan, { notify, gate, dispatch }) {
+export async function runLayer0(routePlan, { notify, signal, gate, dispatch }) {
     const progress = createBatchProgress(notify);
     try {
-        return await runPassages({ routePlan, notify, progress, gate, dispatch });
+        return await runPassages({ routePlan, notify, signal, progress, gate, dispatch });
     } catch (err) {
         trace('  CAUGHT EXCEPTION:', {
             ...serializeError(err),
@@ -48,12 +49,18 @@ export async function runLayer0(routePlan, { notify, gate, dispatch }) {
  * @param {object} p
  * @param {import('./summarization-routes.js').SummaryRoutePlan} p.routePlan
  * @param {import('./notify.js').NotifyAdapter | undefined} p.notify
+ * @param {AbortSignal} [p.signal]
  * @param {BatchProgressOwner} p.progress
  * @param {import('./foreground-gate.js').ForegroundGate} p.gate
  * @param {import('./summarizer-request.js').SummarizerDispatch['call']} p.dispatch - Summarizer Dispatch every passage request goes through.
  * @returns {Promise<import('./run-outcome.js').SummarizationRunOutcome>}
  */
-async function runPassages({ routePlan, notify, progress, gate, dispatch }) {
+async function runPassages({ routePlan, notify, signal, progress, gate, dispatch }) {
+    if (signal?.aborted) {
+        progress.settle(BATCH_PROGRESS.ABORTED);
+        return { status: 'aborted', completed: 0 };
+    }
+
     const chat = getChat();
     if (ensureChatScIds(chat)) {
         await persistChatState({ chatSave: 'deferred' });
@@ -80,6 +87,10 @@ async function runPassages({ routePlan, notify, progress, gate, dispatch }) {
     const entries = [];
 
     for (const passage of passages) {
+        if (signal?.aborted) {
+            progress.settle(BATCH_PROGRESS.ABORTED);
+            return { status: 'aborted', completed: snapshots.length };
+        }
         // Ask before each Passage after the first: a stale run aborts instead of
         // burning the remaining requests. The comparison reads the run's first
         // snapshot so a mutation anywhere in the run stops the rest.
@@ -97,6 +108,7 @@ async function runPassages({ routePlan, notify, progress, gate, dispatch }) {
             progress,
             total: passages.length,
             dispatch,
+            signal,
         });
         if (result.status !== 'completed') {
             return verdictFor(result.status, snapshots.length);
@@ -114,13 +126,22 @@ async function runPassages({ routePlan, notify, progress, gate, dispatch }) {
         progress.update(snapshots.length);
     }
 
+    if (signal?.aborted) {
+        progress.settle(BATCH_PROGRESS.ABORTED);
+        return { status: 'aborted', completed: 0 };
+    }
+
     const commit = await commitLayer0({
         kind: commitKindFor(routePlan),
         entries,
         notify,
         progress,
         gate,
+        signal,
     });
+    if (commit === 'cancelled') {
+        return { status: 'aborted', completed: 0 };
+    }
     if (commit === 'queued') {
         return { status: 'blocked', completed: snapshots.length };
     }
@@ -190,17 +211,25 @@ function resolvePassages(routePlan, { boundary, batch }) {
  * @param {import('./notify.js').NotifyAdapter | undefined} p.notify
  * @param {BatchProgressOwner} p.progress
  * @param {import('./foreground-gate.js').ForegroundGate} p.gate
- * @returns {Promise<import('./foreground-gate.js').CommitResult>}
+ * @param {AbortSignal} [p.signal]
+ * @returns {Promise<import('./foreground-gate.js').CommitResult | 'cancelled'>}
  */
-async function commitLayer0({ kind, entries, notify, progress, gate }) {
-    return await gate.commitWhenSafe({
+async function commitLayer0({ kind, entries, notify, progress, gate, signal }) {
+    let cancelled = false;
+    const result = await gate.commitWhenSafe({
         kind,
         apply: async () => {
+            if (signal?.aborted) {
+                cancelled = true;
+                progress.settle(BATCH_PROGRESS.ABORTED);
+                return true;
+            }
             const committed = await commitLayer0Snippets({ entries, notify, gate });
             progress.settle(committed ? BATCH_PROGRESS.UPDATED : BATCH_PROGRESS.FAILED);
             return committed;
         },
     });
+    return cancelled ? 'cancelled' : result;
 }
 
 /**
@@ -299,6 +328,7 @@ function createBatchProgress(notify) {
  * @param {BatchProgressOwner} p.progress - Shared batch progress owner for this run
  * @param {number} p.total
  * @param {import('./summarizer-request.js').SummarizerDispatch['call']} p.dispatch - Summarizer Dispatch the request goes through.
+ * @param {AbortSignal} [p.signal]
  * @returns {Promise<{status: 'completed', snapshot: import('./summarizer-snapshot.js').SummarizationJobSnapshot, summary: string} | {status: 'idle' | 'aborted' | 'failed'}>}
  */
 async function runPassage({
@@ -310,7 +340,13 @@ async function runPassage({
     progress,
     total,
     dispatch,
+    signal,
 }) {
+    if (signal?.aborted) {
+        progress.settle(BATCH_PROGRESS.ABORTED);
+        return { status: 'aborted' };
+    }
+
     const snapshot = await captureLayer0Snapshot({
         chat,
         store,
@@ -341,12 +377,16 @@ async function runPassage({
                 passageNames: buildPassageNameCensus(snapshot.passageText).join(', '),
             },
             notify,
+            signal,
         });
     } catch (err) {
-        progress.settle();
+        progress.settle(signal?.aborted ? BATCH_PROGRESS.ABORTED : undefined);
+        if (signal?.aborted) {
+            return { status: 'aborted' };
+        }
         throw err;
     }
-    if (outcome.status === 'aborted') {
+    if (outcome.status === 'aborted' || signal?.aborted) {
         progress.settle(BATCH_PROGRESS.ABORTED);
         return { status: 'aborted' };
     }
