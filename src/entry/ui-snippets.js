@@ -375,19 +375,8 @@ function startSnippetEdit(position, initialText) {
         event.stopPropagation();
         void saveDraft();
     });
-    textarea.on('keydown', (event) => {
-        if (event.key === 'Escape') {
-            event.preventDefault();
-            close();
-        }
-    });
     overlay.on('pointerdown click', (event) => {
         event.stopPropagation();
-    });
-    overlay.on('click', (event) => {
-        if (event.target === overlay[0]) {
-            close();
-        }
     });
 
     actions.append(cancel, save);
