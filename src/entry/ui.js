@@ -363,7 +363,41 @@ function renderLayerStats(s, store, ghostedCount) {
  * @returns {void}
  */
 function renderPreview(injection, usage) {
-    $('#sc_preview').val(injection.text || '(empty - no summaries yet)');
+    const preview = $('#sc_preview').empty();
+    const text = injection.text || '(empty - no summaries yet)';
+    let cursor = 0;
+
+    for (const part of injection.parts || []) {
+        const start = text.indexOf(part.text, cursor);
+        if (start < 0) {
+            continue;
+        }
+        preview.append(document.createTextNode(text.slice(cursor, start)));
+        const snippets = part.text.split('\n\n');
+        snippets.forEach((snippet, index) => {
+            if (index > 0) {
+                preview.append(
+                    $('<div class="sc-preview-divider"></div>').attr('data-layer', part.layerIndex),
+                );
+            }
+            const match = snippet.match(/^(\[\d+-\d+(?:@[^\]]+)?\])/);
+            if (match) {
+                preview.append(
+                    $('<span class="sc-preview-anchor"></span>')
+                        .attr('data-layer', part.layerIndex)
+                        .text(match[1]),
+                );
+                preview.append(document.createTextNode(snippet.slice(match[1].length)));
+            } else {
+                preview.append(document.createTextNode(snippet));
+            }
+        });
+        cursor = start + part.text.length;
+    }
+    preview.append(document.createTextNode(text.slice(cursor)));
+    if (!injection.parts?.length) {
+        preview.text(text);
+    }
     $('#sc_preview_token_count').text(
         `${formatBudgetTokenLabel(usage.total.count, usage.total.estimated)} tokens`,
     );

@@ -686,11 +686,60 @@
 }
 
 .sc-textarea-tall { min-height: 138px; }
-.sc-preview { min-height: 96px; cursor: default; opacity: 0.94; }
+.sc-preview {
+    min-height: 96px;
+    max-height: 400px;
+    overflow: auto;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+    cursor: text;
+    opacity: 0.94;
+}
+.sc-preview-anchor,
+.sc-preview-divider { --sc-preview-layer-color: var(--SmartThemeQuoteColor, #9bd); }
+.sc-preview-anchor { color: var(--sc-preview-layer-color); font-weight: 700; }
+.sc-preview-divider {
+    height: 1px;
+    margin: 0.7em 0;
+    background: var(--sc-preview-layer-color);
+    opacity: 0.65;
+}
+.sc-preview-anchor[data-layer="0"],
+.sc-preview-divider[data-layer="0"] { --sc-preview-layer-color: #e89b68; }
+.sc-preview-anchor[data-layer="1"],
+.sc-preview-divider[data-layer="1"] { --sc-preview-layer-color: #6bbd9b; }
+.sc-preview-anchor[data-layer="2"],
+.sc-preview-divider[data-layer="2"] { --sc-preview-layer-color: #78a9e8; }
+.sc-preview-anchor[data-layer="3"],
+.sc-preview-divider[data-layer="3"] { --sc-preview-layer-color: #d68ac2; }
+.sc-preview-anchor[data-layer="4"],
+.sc-preview-divider[data-layer="4"] { --sc-preview-layer-color: #c4b45f; }
 .sc-memory-actions {
-    justify-content: flex-end;
+    justify-content: space-between;
     margin-top: 6px;
 }
+.sc-layer-legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px 10px;
+    margin-right: auto;
+    color: var(--SmartThemeBodyColor, #ddd);
+    font-size: 0.75em;
+}
+.sc-layer-legend span { white-space: nowrap; }
+.sc-layer-legend i {
+    display: inline-block;
+    width: 7px;
+    height: 7px;
+    margin-right: 4px;
+    border-radius: 50%;
+    background: var(--sc-preview-layer-color);
+}
+.sc-layer-legend i[data-layer="0"] { --sc-preview-layer-color: #e89b68; }
+.sc-layer-legend i[data-layer="1"] { --sc-preview-layer-color: #6bbd9b; }
+.sc-layer-legend i[data-layer="2"] { --sc-preview-layer-color: #78a9e8; }
+.sc-layer-legend i[data-layer="3"] { --sc-preview-layer-color: #d68ac2; }
+.sc-layer-legend i[data-layer="4"] { --sc-preview-layer-color: #c4b45f; }
 .sc-snippet-browser {
     min-height: 280px;
     max-height: min(62vh, 640px);

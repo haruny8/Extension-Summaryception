@@ -311,7 +311,7 @@ function bindClickHandlers(notify, gate) {
     $(document).on('click', '#sc_refresh_preview', () => refreshUi());
 
     $(document).on('click', '#sc_copy_preview', async function () {
-        const previewText = String($('#sc_preview').val() ?? '');
+        const previewText = String($('#sc_preview').text() ?? '');
         try {
             if (navigator.clipboard?.writeText) {
                 await navigator.clipboard.writeText(previewText);
