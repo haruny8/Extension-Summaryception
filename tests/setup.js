@@ -11,8 +11,6 @@ const foundationMocks = vi.hoisted(() => {
         traceMode: false,
         promptInputLogMode: false,
         promptOutputLogMode: false,
-        continuityStateLogMode: true,
-        continuityStateLogFullMode: true,
     };
 
     function getContext() {
@@ -62,8 +60,6 @@ const foundationMocks = vi.hoisted(() => {
         isTraceEnabled: vi.fn(),
         isPromptInputLogEnabled: vi.fn(),
         isPromptOutputLogEnabled: vi.fn(),
-        isContinuityStateLogEnabled: vi.fn(),
-        isContinuityStateLogFullEnabled: vi.fn(),
         isPromptLogEnabled: vi.fn(),
         info: vi.fn(),
         debug: vi.fn(),
@@ -179,14 +175,6 @@ const foundationMocks = vi.hoisted(() => {
         return Boolean(getDebugSettings().promptOutputLogMode);
     }
 
-    function isContinuityStateLogEnabled() {
-        return Boolean(getDebugSettings().continuityStateLogMode);
-    }
-
-    function isContinuityStateLogFullEnabled() {
-        return Boolean(getDebugSettings().continuityStateLogFullMode);
-    }
-
     function isPromptLogEnabled() {
         return isPromptInputLogEnabled() || isPromptOutputLogEnabled();
     }
@@ -196,8 +184,6 @@ const foundationMocks = vi.hoisted(() => {
         logger.isTraceEnabled.mockImplementation(isTraceEnabled);
         logger.isPromptInputLogEnabled.mockImplementation(isPromptInputLogEnabled);
         logger.isPromptOutputLogEnabled.mockImplementation(isPromptOutputLogEnabled);
-        logger.isContinuityStateLogEnabled.mockImplementation(isContinuityStateLogEnabled);
-        logger.isContinuityStateLogFullEnabled.mockImplementation(isContinuityStateLogFullEnabled);
         logger.isPromptLogEnabled.mockImplementation(isPromptLogEnabled);
         logger.info.mockImplementation((...args) => {
             if (isDebugEnabled()) {

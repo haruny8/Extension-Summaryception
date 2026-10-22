@@ -121,6 +121,33 @@ describe('Call Session runSeries outcomes', () => {
         expect(connectionMocks.sendSummarizerRequest).not.toHaveBeenCalled();
     });
 
+    it('returns blocked without sending when automatic preflight defers for generation', async () => {
+        const lifecycle = [];
+        const result = await runSeries({
+            beforeRequest: async () => 'blocked',
+            onProviderRequestStart: () => lifecycle.push('start'),
+            onProviderRequestEnd: () => lifecycle.push('end'),
+        });
+
+        expect(result.status).toBe('blocked');
+        expect(result.attempts).toBe(1);
+        expect(connectionMocks.sendSummarizerRequest).not.toHaveBeenCalled();
+        expect(lifecycle).toEqual([]);
+    });
+
+    it('balances provider lifecycle callbacks around a sent request', async () => {
+        connectionMocks.sendSummarizerRequest.mockResolvedValue(VALID_SUMMARY);
+        const lifecycle = [];
+
+        const result = await runSeries({
+            onProviderRequestStart: () => lifecycle.push('start'),
+            onProviderRequestEnd: () => lifecycle.push('end'),
+        });
+
+        expect(result.status).toBe('completed');
+        expect(lifecycle).toEqual(['start', 'end']);
+    });
+
     it('returns aborted when the request reports a user abort', async () => {
         connectionMocks.sendSummarizerRequest.mockRejectedValue(new Error('Aborted by user'));
 

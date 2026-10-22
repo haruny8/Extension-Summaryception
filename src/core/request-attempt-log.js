@@ -44,6 +44,9 @@ function getAttemptLogStatus(result) {
     if (result.status === 'guard-stopped') {
         return 'easy-context-guard';
     }
+    if (result.status === 'blocked') {
+        return 'blocked';
+    }
     return 'failed';
 }
 

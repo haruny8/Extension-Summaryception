@@ -53,9 +53,6 @@ export const EXECUTION_TRIGGER_L0 =
 export const EXECUTION_TRIGGER_PROMO =
     'Now output exactly one <narrative> envelope with no preamble, code fences, or commentary.';
 
-export const EXECUTION_TRIGGER_AUDITOR =
-    'Now output exactly one JSON state object with no preamble, code fences, or commentary.';
-
 /**
  * Insert `insert` immediately before the trailing `triggerLine` of an
  * assembled user prompt. Runtime appenders use this to place dynamic

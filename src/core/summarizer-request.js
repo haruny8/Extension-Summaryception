@@ -16,6 +16,9 @@ import { buildSummarizerPipelineInput, traceSummarizerInputTokens } from './summ
  *     metadata?: import('./call-profile.js').SummarizerCallMetadata,
  *     notify?: import('./notify.js').NotifyAdapter,
  *     signal?: AbortSignal,
+ *     beforeRequest?: (signal: AbortSignal) => Promise<boolean | 'blocked'>,
+ *     onProviderRequestStart?: () => void,
+ *     onProviderRequestEnd?: () => void,
  * }) => Promise<import('./run-outcome.js').RunOutcome>} call - Runs one summarizer request.
  * @property {() => boolean} isLive - Whether any summarizer request is in flight.
  * @property {() => void} abort - Aborts every live summarizer request.
@@ -39,10 +42,13 @@ export function createSummarizerDispatch({ usage }) {
     /**
      * @param {object} request
      * @param {string} request.storyTxt - Story text to summarize
-     * @param {string} request.contextStr - Continuity context text
+     * @param {string} request.contextStr - Prior summary context text
      * @param {import('./call-profile.js').SummarizerCallMetadata} [request.metadata] - Resolver input: call category plus provenance
      * @param {import('./notify.js').NotifyAdapter} [request.notify] - Notify adapter for mid-run notices; defaults to the silent adapter
      * @param {AbortSignal} [request.signal] - Optional external abort signal; aborting it aborts this request
+     * @param {(signal: AbortSignal) => Promise<boolean | 'blocked'>} [request.beforeRequest] - Optional final provider preflight
+     * @param {() => void} [request.onProviderRequestStart] - Marks provider transport as active
+     * @param {() => void} [request.onProviderRequestEnd] - Clears provider transport marker
      * @returns {Promise<import('./run-outcome.js').RunOutcome>} `completed` carries the summary text and the resolved profile
      */
     async function call({
@@ -51,6 +57,9 @@ export function createSummarizerDispatch({ usage }) {
         metadata = {},
         notify = silentAdapter,
         signal = undefined,
+        beforeRequest = undefined,
+        onProviderRequestStart = undefined,
+        onProviderRequestEnd = undefined,
     }) {
         trace('>>> ENTERING summarizer dispatch call');
         await traceSummarizerInputTokens(storyTxt, contextStr);
@@ -80,6 +89,9 @@ export function createSummarizerDispatch({ usage }) {
             return await requestRunner.run({
                 ...request,
                 signal: controller.signal,
+                beforeRequest,
+                onProviderRequestStart,
+                onProviderRequestEnd,
                 notify,
                 usage,
             });

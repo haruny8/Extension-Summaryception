@@ -56,7 +56,7 @@ describe('buildRepairDiagnostics', () => {
 
     it('honors an explicit violation flag for sections with no token bounds', () => {
         const diagnostics = buildRepairDiagnostics({
-            scope: 'auditor',
+            scope: 'repair',
             sections: [
                 {
                     id: 'parse',

@@ -5,4 +5,4 @@ An ADR records that a decision was made and why: a title and one to three senten
 ## Considered Options
 
 - **Keep the refactor narrative in each ADR.** Rejected: git stores it, and the commit subject already names the ADR, so it was written twice while 83% of the corpus grew past the shape.
-- **Cap total words instead.** Rejected: ADR-0017 legitimately carries six consolidated decisions, so a total cap forces a seventh file or drops content no other container holds. The rule caps the unit instead — one alternative per bullet — and length follows from the count of real facts.
+- **Cap total words instead.** Rejected: a consolidated decision may need several related facts, so a total cap can force extra files or drop content no other container holds. The rule caps the unit instead — one alternative per bullet — and length follows from the count of real facts.

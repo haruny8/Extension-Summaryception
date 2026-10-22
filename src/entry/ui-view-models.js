@@ -102,7 +102,7 @@ export function buildTriggerGaugeModel(work, s) {
  * the extension is off.
  * @param {{ mode: string, complexity: string, enabled: boolean }} mode - Operation Mode verdict.
  * @param {{ autoPaused?: boolean }} [options] - Pause Latch state, which only swaps the run controls.
- * @returns {{ modeLabel: string, off: boolean, easyPanel: boolean, advancedPanel: boolean, continuitySection: boolean, stop: boolean, resume: boolean }}
+ * @returns {{ modeLabel: string, off: boolean, easyPanel: boolean, advancedPanel: boolean, stop: boolean, resume: boolean }}
  */
 export function buildEnabledContentModel(mode, { autoPaused = false } = {}) {
     const off = mode.mode !== OPERATION_MODES.ON;
@@ -113,7 +113,6 @@ export function buildEnabledContentModel(mode, { autoPaused = false } = {}) {
         off,
         easyPanel: !advanced,
         advancedPanel: advanced,
-        continuitySection: !off && advanced,
         stop: !off && !paused,
         resume: !off && paused,
     };

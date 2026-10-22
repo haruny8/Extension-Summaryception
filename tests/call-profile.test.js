@@ -10,16 +10,12 @@ describe('resolveCallProfile prompts', () => {
         summarizerUserPrompt: 'L0-USER',
         promotionSystemPrompt: 'PROMO-SYS',
         promotionUserPrompt: 'PROMO-USER',
-        auditorSystemPrompt: 'AUD-SYS',
-        auditorUserPrompt: 'AUD-USER',
         summarizerRepairPrompt: 'L0-REPAIR',
         summarizerSystemPromptPreset: 'custom',
         promptPreset: 'custom',
         summarizerRepairPromptPreset: 'custom',
         promotionSystemPromptPreset: 'custom',
         promotionPromptPreset: 'custom',
-        auditorSystemPromptPreset: 'custom',
-        auditorPromptPreset: 'custom',
     });
 
     it('routes each call family to its own prompt settings', () => {
@@ -34,22 +30,14 @@ describe('resolveCallProfile prompts', () => {
         const promotion = resolveCallProfile(promptSettings, { kind: 'promotion' }).policy;
         expect(promotion.systemPrompt).toBe('PROMO-SYS');
         expect(promotion.userPromptTemplate).toBe('PROMO-USER');
-
-        const auditor = resolveCallProfile(promptSettings, { kind: 'auditor' }).policy;
-        expect(auditor.systemPrompt).toBe('AUD-SYS');
-        expect(auditor.userPromptTemplate).toBe('AUD-USER');
     });
 
     it('falls back to the default prompts for malformed non-string settings', () => {
         const broken = makeSummarySettings({
             summarizerSystemPrompt: 42,
-            auditorUserPrompt: null,
         });
         expect(resolveCallProfile(broken, { kind: 'layer0' }).policy.systemPrompt).toBe(
             defaultSettings.summarizerSystemPrompt,
-        );
-        expect(resolveCallProfile(broken, { kind: 'auditor' }).policy.userPromptTemplate).toBe(
-            defaultSettings.auditorUserPrompt,
         );
     });
 
@@ -86,9 +74,6 @@ describe('resolveCallProfile prompts', () => {
         ).toBe('L0-REPAIR');
         expect(
             resolveCallProfile(promptSettings, { kind: 'promotion' }).policy.repairPromptTemplate,
-        ).toBe('');
-        expect(
-            resolveCallProfile(promptSettings, { kind: 'auditor' }).policy.repairPromptTemplate,
         ).toBe('');
     });
 });
@@ -140,9 +125,6 @@ describe('resolveCallProfile health bucket', () => {
         );
         expect(resolveCallProfile(settings, { kind: 'layer0' }).policy.healthBucket).toBe('layer0');
         expect(resolveCallProfile(settings, { kind: 'regenerate' }).policy.healthBucket).toBe(
-            'layer0',
-        );
-        expect(resolveCallProfile(settings, { kind: 'auditor' }).policy.healthBucket).toBe(
             'layer0',
         );
     });
@@ -207,83 +189,11 @@ describe('resolveCallProfile connections', () => {
     });
 });
 
-describe('resolveCallProfile auditor route series', () => {
-    const narrativeFallbackSettings = {
-        requestTimeoutSeconds: 30,
-        fallbackConnectionSource: 'profile',
-        fallbackConnectionProfileId: 'backup',
-        fallbackRequestTimeoutSeconds: 50,
-    };
-
-    it('keeps the narrative route series on inherit so the chains stay identical', () => {
-        const settings = makeSummarySettings(narrativeFallbackSettings);
-        const auditor = resolveCallProfile(settings, { kind: 'auditor' }).policy.routes;
-        const layer0 = resolveCallProfile(settings, { kind: 'layer0' }).policy.routes;
-        expect(auditor).toEqual(layer0);
-        expect(auditor).toHaveLength(2);
-        expect(auditor[0].connection).toBe(settings);
-    });
-
-    it('builds a dedicated primary hop for the default source', () => {
-        const settings = makeSummarySettings({
-            auditorConnectionSource: 'default',
-            auditorSummarizerResponseLength: 400,
-            auditorRequestTimeoutSeconds: 45,
-        });
-        const routes = resolveCallProfile(settings, { kind: 'auditor' }).policy.routes;
-        expect(routes).toHaveLength(1);
-        expect(routes[0].connection).not.toBe(settings);
-        expect(routes[0].connection.connectionSource).toBe('default');
-        expect(routes[0].connection.summarizerResponseLength).toBe(400);
-        expect(routes[0].timeoutMs).toBe(45000);
-    });
-
-    it('carries the profile id on the profile source', () => {
-        const settings = makeSummarySettings({
-            auditorConnectionSource: 'profile',
-            auditorConnectionProfileId: 'aud-1',
-        });
-        const routes = resolveCallProfile(settings, { kind: 'auditor' }).policy.routes;
-        expect(routes[0].connection.connectionSource).toBe('profile');
-        expect(routes[0].connection.connectionProfileId).toBe('aud-1');
-    });
-
-    it('runs a single hop and ignores removed fallback settings stored in old chats', () => {
-        // ADR-0009 as amended: no auditor fallback route and no narrative
-        // failover exist anymore; stored keys from earlier versions are dead.
-        const settings = makeSummarySettings({
-            auditorConnectionSource: 'profile',
-            auditorConnectionProfileId: 'aud-1',
-            auditorRequestTimeoutSeconds: 31,
-            auditorFallbackConnectionSource: 'profile',
-            auditorFallbackConnectionProfileId: 'aud-2',
-            auditorFallbackRequestTimeoutSeconds: 32,
-            auditorNarrativeFallback: true,
-            ...narrativeFallbackSettings,
-        });
-        const routes = resolveCallProfile(settings, { kind: 'auditor' }).policy.routes;
-        expect(routes).toHaveLength(1);
-        expect(routes[0].connection.connectionProfileId).toBe('aud-1');
-        expect(routes[0].timeoutMs).toBe(31000);
-    });
-
-    it('applies the layer0 hard fallback to malformed auditor timeouts', () => {
-        const settings = makeSummarySettings({
-            auditorConnectionSource: 'profile',
-            auditorConnectionProfileId: 'aud-1',
-            auditorRequestTimeoutSeconds: 0,
-        });
-        const routes = resolveCallProfile(settings, { kind: 'auditor' }).policy.routes;
-        expect(routes[0].timeoutMs).toBe(120000);
-    });
-});
-
 describe('resolveCallProfile guard flags', () => {
     it.each([
         ['layer0', true, true],
         ['regenerate', true, true],
         ['promotion', true, false],
-        ['auditor', false, false],
     ])(
         'resolves compression and the structural envelope policy for %s',
         (kind, compression, guarded) => {
@@ -362,7 +272,6 @@ describe('resolveCallProfile label', () => {
                 mergedSnippetCount: 2,
             }).policy.label,
         ).toBe('promotion L1 -> L2 (2 snippets)');
-        expect(resolveCallProfile(settings, { kind: 'auditor' }).policy.label).toBe('auditor');
     });
 
     it('falls back to the raw category and the generic summarizer label', () => {
@@ -422,7 +331,6 @@ describe('resolveCallProfile provenance', () => {
 
     it('carries provenance keys and never leaks route or repair flags', () => {
         const { provenance } = resolveCallProfile(makeSummarySettings(), {
-            kind: 'auditor',
             useFallback: true,
             layer0Repair: true,
         });

@@ -94,14 +94,13 @@ function syncSettingsInputs(s, effectiveSettings) {
 }
 
 /**
- * @param {{ off: boolean, easyPanel: boolean, advancedPanel: boolean, continuitySection: boolean, stop: boolean, resume: boolean }} view
+ * @param {{ off: boolean, easyPanel: boolean, advancedPanel: boolean, stop: boolean, resume: boolean }} view
  * @returns {void}
  */
 export function syncEnabledContent(view) {
     $('#sc_off_content').toggle(view.off);
     $('#sc_easy_content').toggle(view.easyPanel);
     $('#sc_enabled_content').toggle(view.advancedPanel);
-    $('#sc_continuity_section').toggle(view.continuitySection);
     $('#sc_stop_summarize, #sc_easy_stop_summarize').toggle(view.stop);
     $('#sc_resume_summarize, #sc_easy_resume_summarize').toggle(view.resume);
 }

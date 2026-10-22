@@ -3,8 +3,8 @@ import {
     isGeneratingFlagSet,
     isSendButtonInStopMode,
 } from '../foundation/context.js';
+import { sleep } from '../foundation/retry.js';
 import { debug, info, trace, warn } from '../foundation/logger.js';
-import { isRerollTail } from './continuity-checkpoint.js';
 
 /** @typedef {'applied' | 'queued' | 'stale'} CommitResult */
 /** @typedef {'applied' | 'queued'} PromptEffectResult */
@@ -55,7 +55,8 @@ export class ForegroundGate {
     #now;
 
     #foregroundFrozen = false;
-    #rerollTail = false;
+    #automaticRequestWaiting = false;
+    #automaticProviderActive = false;
     /** @type {PendingCommit[]} */
     #pendingCommits = [];
     /** @type {PendingPromptEffect[]} */
@@ -78,14 +79,11 @@ export class ForegroundGate {
      * Freeze prompt-affecting mutations after the beforeFreeze hook runs and the
      * committed injection is reasserted. The hook is the one gate-sanctioned
      * window for pre-freeze prompt writes (ADR-0016): it runs while the gate is
-     * still open, before the freeze locks slot content. The generation type and
-     * chat record the Reroll Tail (ADR-0017) before the hook so its injection
-     * write already renders the prompt view that excludes the tail.
-     * @param {{ beforeFreeze?: () => void, generationType?: unknown, chat?: unknown }} [options]
+     * still open, before the freeze locks slot content.
+     * @param {{ beforeFreeze?: () => void }} [options]
      * @returns {void}
      */
-    beginGeneration({ beforeFreeze, generationType, chat } = {}) {
-        this.#rerollTail = isRerollTail(generationType, chat);
+    beginGeneration({ beforeFreeze } = {}) {
         if (beforeFreeze) {
             beforeFreeze();
         }
@@ -110,23 +108,12 @@ export class ForegroundGate {
         }
 
         this.#foregroundFrozen = false;
-        this.#rerollTail = false;
         this.#freezeStartedAt = 0;
         const commits = this.#pendingCommits.length;
         const effects = this.#pendingEffects.length;
         info(`Foreground freeze off; commits=${commits}, effects=${effects} flushed.`);
         await this.#flushPendingCommits();
         await this.#flushPendingEffects();
-    }
-
-    /**
-     * Whether the in-flight generation replaces the chat tail, so the host
-     * excludes that message from the prompt chat (ADR-0017). Coverage and the
-     * Continuity Block read it as their explicit prompt-view input.
-     * @returns {boolean}
-     */
-    isRerollTail() {
-        return this.#rerollTail;
     }
 
     /**
@@ -200,6 +187,58 @@ export class ForegroundGate {
     }
 
     /**
+     * @returns {number} The generation epoch used to invalidate automatic snapshots.
+     */
+    getGenerationEpoch() {
+        return this.#generationEpoch;
+    }
+
+    /**
+     * @returns {boolean} Whether an automatic provider call is waiting to start.
+     */
+    isWaitingForAutomaticRequest() {
+        return this.#automaticRequestWaiting;
+    }
+
+    /** @param {boolean} waiting */
+    setAutomaticRequestWaiting(waiting) {
+        this.#automaticRequestWaiting = waiting;
+    }
+
+    /** @param {boolean} active */
+    setAutomaticProviderActive(active) {
+        this.#automaticProviderActive = active;
+    }
+
+    /** @returns {boolean} */
+    isAutomaticProviderActive() {
+        return this.#automaticProviderActive;
+    }
+
+    /**
+     * Wait until both the extension freeze and SillyTavern's generation
+     * indicators are clear. Automatic requests call this immediately before
+     * entering a provider, after their prompt has been prepared.
+     * @param {AbortSignal} signal
+     * @param {number} expectedEpoch
+     * @returns {Promise<boolean>} False when the caller aborts while waiting.
+     */
+    async waitForGenerationToEnd(signal, expectedEpoch) {
+        let sawActiveGeneration = false;
+        while (!signal.aborted) {
+            await this.heal('automatic request wait');
+            const generationActive = this.#foregroundFrozen || this.#isForegroundGenerationActive();
+            if (generationActive) {
+                sawActiveGeneration = true;
+            } else {
+                return !sawActiveGeneration && this.#generationEpoch === expectedEpoch;
+            }
+            await sleep(100);
+        }
+        return false;
+    }
+
+    /**
      * Clear a stale freeze when SillyTavern is no longer generating. The heal's
      * own flush must apply queued prompt effects and commits, and every effect
      * queued by that flush would otherwise requeue against the heal's in-flight
@@ -253,7 +292,8 @@ export class ForegroundGate {
      */
     reset() {
         this.#foregroundFrozen = false;
-        this.#rerollTail = false;
+        this.#automaticRequestWaiting = false;
+        this.#automaticProviderActive = false;
         this.#pendingCommits = [];
         this.#pendingEffects = [];
         this.#generationEpoch = 0;
@@ -384,8 +424,7 @@ export class ForegroundGate {
 
 /**
  * Build the Foreground Gate. The composition root builds one and hands it to
- * its callers, so the freeze, the epoch, the Reroll Tail, and both queues have
- * a single owner.
+ * its callers, so the freeze, the epoch, and both queues have a single owner.
  * @param {ForegroundGateDeps} deps
  * @returns {ForegroundGate}
  */

@@ -2,7 +2,6 @@ import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 
 import {
-    AUDITOR_CHAIN,
     CONNECTION_ROUTES,
     NARRATIVE_CHAIN,
     getRoutePanelIds,
@@ -97,13 +96,11 @@ describe('connection route catalogue', () => {
             NARRATIVE_CHAIN.primary,
             NARRATIVE_CHAIN.promotionOverride,
             NARRATIVE_CHAIN.fallback,
-            AUDITOR_CHAIN.primary,
         ]) {
             expect(CONNECTION_ROUTES, id).toHaveProperty(id);
         }
         expect(NARRATIVE_CHAIN.primary).not.toBe(NARRATIVE_CHAIN.promotionOverride);
-        // The Auditor chain is a single hop (ADR-0009 as amended).
-        expect(Object.keys(AUDITOR_CHAIN)).toEqual(['primary']);
+        expect(Object.keys(CONNECTION_ROUTES).sort()).toEqual(['fallback', 'layer0', 'merge']);
     });
 });
 

@@ -75,17 +75,6 @@ const CONNECTION_GROUPS = [
         sourceRisk: 'It is ignored if it matches the primary route.',
         responseDefault: '0 uses the selected provider default.',
     },
-    {
-        key: 'auditor',
-        label: 'Auditor',
-        route: 'dedicated Continuity Auditor route used for background audit calls.',
-        sourceId: 'summaryception_auditor_connection_source',
-        responseLengthId: 'sc_auditor_summarizer_response_length',
-        requestTimeoutId: 'sc_auditor_request_timeout',
-        profileId: 'summaryception_auditor_connection_profile',
-        sourceRisk: 'A stalled Auditor route leaves the continuity state stale until it recovers.',
-        responseDefault: '0 uses the selected provider default.',
-    },
 ];
 
 const CONNECTION_ENTRY_BUILDERS = [
@@ -160,9 +149,6 @@ function profileHelp(group) {
 }
 
 function getConnectionSourceShort(group) {
-    if (group.key === 'auditor') {
-        return 'Dedicated route for Continuity Auditor audit calls.';
-    }
     if (group.key === 'fallback') {
         return 'Backup route after retryable primary failures.';
     }
@@ -173,9 +159,6 @@ function getConnectionSourceShort(group) {
 }
 
 function getConnectionSourceWhen(group) {
-    if (group.key === 'auditor') {
-        return 'Use it when the default route is not the best auditor, or when the Auditor keeps failing over.';
-    }
     if (group.key === 'fallback') {
         return 'Only use it if you have a second working route. Leave it disabled otherwise.';
     }
@@ -774,31 +757,6 @@ const HELP_ENTRIES = [
             controls: [controlFor('sc_prompt_output_log_mode')],
             controlsText: 'Decides whether cleaned summarizer replies and errors get logged.',
             when: 'Use it only when diagnosing provider output or cleanup behavior.',
-            risk: 'The browser console may hold private chat text.',
-        }),
-    ],
-    [
-        'continuity_state_log_mode',
-        basicHelp({
-            selector: selectorFor('sc_continuity_state_log_mode'),
-            title: 'Log Continuity State',
-            short: 'Print Continuity State audits in the F12 console.',
-            controls: [controlFor('sc_continuity_state_log_mode')],
-            controlsText: 'Prints every Continuity State audit in the F12 console.',
-            when: 'Turn it on while checking how the Continuity State evolves.',
-            risk: 'The console groups hold chat-derived state and stay on by default.',
-        }),
-    ],
-    [
-        'continuity_state_log_full_mode',
-        basicHelp({
-            selector: selectorFor('sc_continuity_state_log_full_mode'),
-            title: 'Log Full Continuity State',
-            short: 'Print the complete Continuity State JSON instead of the change summary.',
-            controls: [controlFor('sc_continuity_state_log_full_mode')],
-            controlsText:
-                'Needs Log Continuity State on. Replaces the change summary with the full Continuity State JSON after each audit.',
-            when: 'Use it when the change summary is not enough to debug the audit.',
             risk: 'The browser console may hold private chat text.',
         }),
     ],

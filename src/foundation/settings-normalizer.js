@@ -18,7 +18,7 @@ import { clampInteger, clampToStep } from './numeric.js';
  * path all reach it without touching the host.
  */
 
-const PROMPT_PRESET_VALUES = Object.freeze(['narrative', 'continuity', 'custom']);
+const PROMPT_PRESET_VALUES = Object.freeze(['narrative', 'custom']);
 
 /**
  * The retention and timeout passes always clamp and never report change,
@@ -33,14 +33,8 @@ export function normalizeSettings(settings, { hadMaskUserRoleMode }) {
     const roleMaskSettingsNormalized = normalizeRoleMaskSettings(settings, hadMaskUserRoleMode);
     normalizeVerbatimWindowSettings(settings);
     normalizeRequestTimeouts(settings);
-    const continuitySettingsNormalized = normalizeContinuitySettings(settings);
     const promptSettingsNormalized = normalizePromptSettings(settings);
-    return (
-        memorySettingsNormalized ||
-        roleMaskSettingsNormalized ||
-        continuitySettingsNormalized ||
-        promptSettingsNormalized
-    );
+    return memorySettingsNormalized || roleMaskSettingsNormalized || promptSettingsNormalized;
 }
 
 /**
@@ -121,24 +115,6 @@ function isSettingValue(values, value) {
  */
 function asSettingsRecord(settings) {
     return /** @type {Record<string, unknown>} */ (/** @type {unknown} */ (settings));
-}
-
-/**
- * Coerce the Continuity toggles to strict booleans; stored garbage reads as
- * off instead of tripping the audit gates.
- * @param {ExtensionSettings} settings
- * @returns {boolean} Whether settings were changed.
- */
-function normalizeContinuitySettings(settings) {
-    let changed = false;
-    for (const key of ['continuityEnabled']) {
-        const value = settings[key] === true;
-        if (settings[key] !== value) {
-            settings[key] = value;
-            changed = true;
-        }
-    }
-    return changed;
 }
 
 /**

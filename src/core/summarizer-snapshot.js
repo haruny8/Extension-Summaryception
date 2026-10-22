@@ -11,7 +11,7 @@ import { getSummaryStoreMutationEpoch } from '../foundation/chat-store.js';
  * @property {number} summaryStoreEpoch - Summary-layer mutation epoch.
  * @property {string} passageText - Raw passage text captured for the job.
  * @property {import('./chatutils.js').PassageRegexStats} passageStats - Regex stats of the captured passage.
- * @property {string} contextText - Continuity context text captured for the job.
+ * @property {string} contextText - Prior summary context text captured for the job.
  */
 
 /**

@@ -5,21 +5,6 @@ import { defaultSettings } from '../src/foundation/constants.js';
 import { installSummaryContext } from './test-helpers.js';
 
 describe('buildSummarizerPipelineInput', () => {
-    it('routes the auditor call category to the auditor prompts with substitution', async () => {
-        installSummaryContext();
-
-        const request = await buildSummarizerPipelineInput({
-            storyTxt: 'USER TURN',
-            contextStr: 'PRIOR STATE',
-            metadata: { kind: 'auditor' },
-        });
-
-        expect(request.profile.policy.systemPrompt).toBe(defaultSettings.auditorSystemPrompt);
-        expect(request.prompt).toContain('PRIOR STATE');
-        expect(request.prompt).toContain('USER TURN');
-        expect(request.repairPrompt).toBe('');
-    });
-
     it('replaces every message count placeholder in user and repair prompts', async () => {
         installSummaryContext();
 
@@ -63,7 +48,6 @@ describe('buildSummarizerPipelineInput', () => {
             defaultSettings.summarizerUserPrompt,
             defaultSettings.summarizerRepairPrompt,
             defaultSettings.promotionUserPrompt,
-            defaultSettings.auditorUserPrompt,
         ];
 
         for (const template of templates) {

@@ -1,6 +1,4 @@
 import {
-    AUDITOR_PROMPT_PRESETS,
-    AUDITOR_SYSTEM_PROMPT_PRESETS,
     PROMOTION_PROMPT_PRESETS,
     PROMOTION_SYSTEM_PROMPT_PRESETS,
     PROMPT_PRESETS,
@@ -38,16 +36,6 @@ const PROMPT_FIELD_UI = {
         presetSelect: '#sc_promotion_prompt_preset',
         textarea: '#sc_promotion_user_prompt',
         presets: PROMOTION_PROMPT_PRESETS,
-    },
-    auditorSystemPromptPreset: {
-        presetSelect: '#sc_auditor_system_prompt_preset',
-        textarea: '#sc_auditor_system_prompt',
-        presets: AUDITOR_SYSTEM_PROMPT_PRESETS,
-    },
-    auditorPromptPreset: {
-        presetSelect: '#sc_auditor_prompt_preset',
-        textarea: '#sc_auditor_user_prompt',
-        presets: AUDITOR_PROMPT_PRESETS,
     },
 };
 

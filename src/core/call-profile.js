@@ -1,6 +1,4 @@
 import {
-    AUDITOR_PROMPT_PRESETS,
-    AUDITOR_SYSTEM_PROMPT_PRESETS,
     defaultSettings,
     PROMOTION_PROMPT_PRESETS,
     PROMOTION_SYSTEM_PROMPT_PRESETS,
@@ -10,7 +8,6 @@ import {
     UI_MODES,
 } from '../foundation/constants.js';
 import {
-    AUDITOR_CHAIN,
     CONNECTION_ROUTES,
     NARRATIVE_CHAIN,
     PROVIDER_SETTING_KEYS,
@@ -64,7 +61,7 @@ const ROUTE_IDENTITY_KEYS = Object.freeze({
  * provenance the dispatch constructors build. Downstream, the request path
  * consumes the resolved CallProfile and never reads `kind`.
  * @typedef {object} SummarizerCallMetadata
- * @property {'layer0' | 'promotion' | 'regenerate' | 'auditor' | string} [kind] - Call category
+ * @property {'layer0' | 'promotion' | 'regenerate' | string} [kind] - Call category
  * @property {[number, number]} [sourceRange] - Source chat index range
  * @property {import('./chatutils.js').PassageRegexStats} [regexStats] - Passage regex stats
  * @property {string} [passageNames] - Comma-joined census of the passage's recurring character names, for the Refusal Guard shape signal
@@ -174,14 +171,6 @@ function resolveSystemPrompt(settings, kind) {
             fallback: defaultSettings.promotionSystemPrompt,
         });
     }
-    if (kind === 'auditor') {
-        return resolvePromptSetting(settings, {
-            presetKey: 'auditorSystemPromptPreset',
-            text: settings.auditorSystemPrompt,
-            presets: AUDITOR_SYSTEM_PROMPT_PRESETS,
-            fallback: defaultSettings.auditorSystemPrompt,
-        });
-    }
     return resolvePromptSetting(settings, {
         presetKey: 'summarizerSystemPromptPreset',
         text: settings.summarizerSystemPrompt,
@@ -202,14 +191,6 @@ function resolveUserPromptTemplate(settings, call) {
             text: settings.promotionUserPrompt,
             presets: PROMOTION_PROMPT_PRESETS,
             fallback: defaultSettings.promotionUserPrompt,
-        });
-    }
-    if (call.kind === 'auditor') {
-        return resolvePromptSetting(settings, {
-            presetKey: 'auditorPromptPreset',
-            text: settings.auditorUserPrompt,
-            presets: AUDITOR_PROMPT_PRESETS,
-            fallback: defaultSettings.auditorUserPrompt,
         });
     }
     return resolvePromptSetting(settings, {
@@ -311,18 +292,13 @@ function buildProvenance(call) {
 }
 
 /**
- * Resolve the ordered failover series for one call. Non-auditor families run
- * the Narrative Chain; a separated Auditor (ADR-0009) runs its own hops and
- * optionally appends the Narrative Chain as the last-resort failover. Both
- * chain shapes come from the route catalogue (ADR-0026).
+ * Resolve the ordered failover series for one call. Every call family runs
+ * the Narrative Chain; promotion can override its primary route.
  * @param {ExtensionSettings} settings
  * @param {string} [kind]
  * @returns {CallProfileRoute[]}
  */
 function resolveRouteSeries(settings, kind) {
-    if (kind === 'auditor') {
-        return resolveAuditorRouteSeries(settings);
-    }
     return resolveNarrativeRouteSeries(settings, kind === 'promotion');
 }
 
@@ -382,26 +358,6 @@ function resolveNarrativeFallbackHop(settings, isPromotion, primary) {
         connection,
         timeoutMs: resolveRouteTimeoutMs(settings[route.timeoutKey], isPromotion),
     };
-}
-
-/**
- * Resolve the Auditor series: inherit keeps the Narrative Chain identical to
- * a Layer 0 call; a separated Auditor runs its single hop with no failover
- * (ADR-0009); the Catch-up Window recovers a missed audit.
- * @param {ExtensionSettings} settings
- * @returns {CallProfileRoute[]}
- */
-function resolveAuditorRouteSeries(settings) {
-    const primaryRoute = CONNECTION_ROUTES[AUDITOR_CHAIN.primary];
-    if (!isProviderRouteSource(primaryRoute, resolveRouteSource(settings, primaryRoute))) {
-        return resolveNarrativeRouteSeries(settings, false);
-    }
-    return [
-        {
-            connection: buildRouteConnection(settings, primaryRoute),
-            timeoutMs: resolveRouteTimeoutMs(settings[primaryRoute.timeoutKey], false),
-        },
-    ];
 }
 
 /**

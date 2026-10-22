@@ -1,18 +1,14 @@
-import { getChat, getGroupId, getName1, isDryRunEvent } from '../foundation/context.js';
+import { getChat, isDryRunEvent } from '../foundation/context.js';
 import { isTraceEnabled, trace, warn } from '../foundation/logger.js';
 import { ensureChatScIds } from '../foundation/message-identity.js';
-import { getChatStore } from '../foundation/chat-store.js';
 import { getEffectiveSettings } from '../foundation/settings.js';
 import { refreshFull, refreshPreview, refreshUi } from '../foundation/refresh.js';
 import { syncGhosting } from '../core/ghosting.js';
-import { isAuditorTriggerMessage } from '../core/continuity-audit.js';
-import { discardCheckpoint } from '../core/continuity-checkpoint.js';
 import { maskUserRoleAsAssistantInGenerateData } from '../core/assistant-role-mask.js';
 import { evaluateStaleCacheAdvice, isProviderCacheMode } from '../core/cache-staleness.js';
 import { buildChatWindowPlan } from '../core/chat-window-planner.js';
-import { updateContinuityInjection } from '../features/continuity-injection.js';
-import { updateContinuityMarker } from './continuity-marker.js';
 import { flushPendingChatSave, persistChatState } from '../core/persist-state.js';
+import { getChatStore } from '../foundation/chat-store.js';
 import { pauseMemoryToastForGeneration, showStaleCacheAdvice } from './ui-dialogs.js';
 
 let previousPromptSectionHashes = [];
@@ -124,18 +120,11 @@ let promptFreezeRecoveryBound = false;
 
 /**
  * Debounces the automatic cycle so fast message streams queue one request.
- * A fresh or regenerated assistant reply also kicks off one Continuity
- * Audit; the audit owns every further gate.
  * @param {number} messageIndex
- * @param {object} options
- * @param {import('../core/notify.js').NotifyAdapter} [options.notify] - Notify adapter for auditor notices
- * @param {unknown} [options.type] - MESSAGE_RECEIVED type argument; 'normal' triggers an audit, the other types dispatch nothing
- * @param {{ audit: (input: import('../core/continuity-audit.js').ContinuityAuditInput) => Promise<unknown> }} options.auditor - Continuity Audit built at the composition root
- * @param {import('../core/summarizer-queue.js').SummarizerQueue} options.queue - Summarizer Queue a new reply kicks.
- * @param {import('../core/foreground-gate.js').ForegroundGate} options.gate - Foreground Gate owning the Reroll Tail the audit's coverage input reads.
+ * @param {{ queue: import('../core/summarizer-queue.js').SummarizerQueue }} options
  * @returns {void}
  */
-export function onMessageReceived(messageIndex, { notify, type, auditor, queue, gate }) {
+export function onMessageReceived(messageIndex, { queue }) {
     try {
         const chat = getChat();
         const msg = chat[messageIndex];
@@ -145,34 +134,10 @@ export function onMessageReceived(messageIndex, { notify, type, auditor, queue, 
                 await queue.request();
                 refreshUi();
             }, 500);
-            if (isAuditorTriggerMessage(msg, type)) {
-                void auditor.audit(gatherAuditInputs(gate, notify)).catch((e) => {
-                    warn('Continuity auditor run error:', e);
-                });
-            }
         }
     } catch (e) {
         warn('onMessageReceived error:', e);
     }
-}
-
-/**
- * Read the host facts one Continuity Audit needs. Entry owns the host reads;
- * the audit owns every gate past this point.
- * @param {import('../core/foreground-gate.js').ForegroundGate} gate - Foreground Gate owning the Reroll Tail the audit input reads.
- * @param {import('../core/notify.js').NotifyAdapter} [notify] - Notify adapter threaded to the dispatch call.
- * @returns {import('../core/continuity-audit.js').ContinuityAuditInput}
- */
-function gatherAuditInputs(gate, notify) {
-    return {
-        chat: getChat(),
-        store: getChatStore(),
-        settings: getEffectiveSettings(),
-        hasGroup: Boolean(getGroupId()),
-        playerName: getName1(),
-        rerollTail: gate.isRerollTail(),
-        notify,
-    };
 }
 
 /**
@@ -228,25 +193,14 @@ export function onGenerationStarted(args, { gate, queue }) {
         trace('Ignoring generation start from SillyTavern dry run.');
         return;
     }
-    if (queue.isRequestLive()) {
+    if (
+        queue.isRequestLive() &&
+        (!gate.isWaitingForAutomaticRequest() || gate.isAutomaticProviderActive())
+    ) {
         trace('Ignoring generation start from active Summaryception request.');
         return;
     }
-    // A reroll replaces the last reply; its own checkpoint must leave the
-    // read model and the prompt view must exclude that reply before the freeze
-    // locks the slot content in. The hook is the gate's pre-freeze window, so
-    // both land even when a stale-heal is still in flight.
-    const chat = getChat();
-    gate.beginGeneration({
-        generationType: args[0],
-        chat,
-        beforeFreeze: () => {
-            if (discardCheckpoint(chat, args[0])) {
-                updateContinuityInjection({ rerollTail: gate.isRerollTail() });
-                updateContinuityMarker();
-            }
-        },
-    });
+    gate.beginGeneration();
     pauseMemoryToastForGeneration();
     refreshUi();
 }

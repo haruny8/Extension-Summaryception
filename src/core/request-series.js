@@ -36,7 +36,7 @@ import { EXECUTION_TRIGGER_L0, insertBeforeTrigger } from '../foundation/prompt-
  * the repair switch read.
  *
  * @typedef {object} AttemptResult
- * @property {'completed' | 'aborted' | 'hard-failover' | 'failed' | 'rejected' | 'guard-stopped'} status - Settled outcome kind.
+ * @property {'completed' | 'aborted' | 'blocked' | 'hard-failover' | 'failed' | 'rejected' | 'guard-stopped'} status - Settled outcome kind.
  * @property {string} [text] - `completed`: the accepted summary text; `rejected`: the cleaned LLM output for the transaction log.
  * @property {Error} [error] - The attempt's error; absent on `completed`.
  * @property {boolean} [retryable] - `failed` only.
@@ -53,7 +53,7 @@ import { EXECUTION_TRIGGER_L0, insertBeforeTrigger } from '../foundation/prompt-
  * before it was sent.
  *
  * @typedef {object} RouteSeriesResult
- * @property {'completed' | 'aborted' | 'hard-failover' | 'failed' | 'rejected' | 'guard-stopped'} status - Settled outcome kind.
+ * @property {'completed' | 'aborted' | 'blocked' | 'hard-failover' | 'failed' | 'rejected' | 'guard-stopped'} status - Settled outcome kind.
  * @property {string} [text] - `completed`: the accepted summary text.
  * @property {Error} [error] - The attempt's error; absent on `completed`.
  * @property {boolean} [retryable] - `failed` only: the error may clear on retry (the budget already ran out).
@@ -98,6 +98,9 @@ function buildAttemptPrompt(basePrompt, repairPrompt, useRepairPrompt, repairFee
  * @property {string} prompt - Fully substituted user prompt.
  * @property {string} repairPrompt - Fully substituted repair prompt ('' when the call validates no repair).
  * @property {AbortSignal} signal - Abort signal.
+ * @property {(signal: AbortSignal) => Promise<boolean | 'blocked'>} [beforeRequest] - Final preflight before provider transport.
+ * @property {() => void} [onProviderRequestStart] - Marks provider transport as active.
+ * @property {() => void} [onProviderRequestEnd] - Clears the provider transport marker.
  * @property {import('./call-profile.js').CallProfile} profile - Call profile resolved at dispatch.
  * @property {import('./notify.js').NotifyAdapter} notify - Notify adapter for mid-run notices.
  * @property {import('./summarizer-usage.js').UsageLedger} usage - Usage Ledger this call records its token usage into.
@@ -130,7 +133,17 @@ export function createAttemptSession(facts) {
  * @returns {Promise<RouteSeriesResult>}
  */
 async function runSeriesForSession(
-    { prompt, repairPrompt, signal, profile, notify, usage },
+    {
+        prompt,
+        repairPrompt,
+        signal,
+        beforeRequest,
+        onProviderRequestStart,
+        onProviderRequestEnd,
+        profile,
+        notify,
+        usage,
+    },
     route,
     { routeLabel, maxRetries },
 ) {
@@ -166,10 +179,17 @@ async function runSeriesForSession(
             routeLabel,
             notify,
             usage,
+            beforeRequest,
+            onProviderRequestStart,
+            onProviderRequestEnd,
         });
 
         if (attemptResult.status === 'completed') {
             return { status: 'completed', text: attemptResult.text, attempts };
+        }
+
+        if (attemptResult.status === 'blocked') {
+            return { status: 'blocked', attempts };
         }
 
         lastError = /** @type {Error} */ (attemptResult.error);
@@ -250,6 +270,9 @@ function logRetryStopReason(reason, maxRetries) {
  * @param {string} p.routeLabel - Route label for structured logs.
  * @param {import('./notify.js').NotifyAdapter} p.notify - Notify adapter for mid-run notices.
  * @param {import('./summarizer-usage.js').UsageLedger} p.usage - Usage Ledger the Call Session records token usage into.
+ * @param {(signal: AbortSignal) => Promise<boolean | 'blocked'>} [p.beforeRequest] - Final preflight before provider transport.
+ * @param {() => void} [p.onProviderRequestStart] - Marks provider transport as active.
+ * @param {() => void} [p.onProviderRequestEnd] - Clears the provider transport marker.
  * @returns {Promise<AttemptResult>}
  */
 async function runLoggedAttempt({
@@ -262,6 +285,9 @@ async function runLoggedAttempt({
     routeLabel,
     notify,
     usage,
+    beforeRequest,
+    onProviderRequestStart,
+    onProviderRequestEnd,
 }) {
     const startedAt = Date.now();
     const logState = createAttemptLogState();
@@ -276,6 +302,9 @@ async function runLoggedAttempt({
             timeoutMs,
             notify,
             usage,
+            beforeRequest,
+            onProviderRequestStart,
+            onProviderRequestEnd,
         });
         updateAttemptLogState(logState, attemptResult);
     } catch (err) {
@@ -308,9 +337,23 @@ async function runLoggedAttempt({
  * @param {number} p.timeoutMs - Attempt timeout in milliseconds.
  * @param {import('./notify.js').NotifyAdapter} p.notify - Notify adapter for mid-run notices.
  * @param {import('./summarizer-usage.js').UsageLedger} p.usage - Usage Ledger the Call Session records token usage into.
+ * @param {(signal: AbortSignal) => Promise<boolean | 'blocked'>} [p.beforeRequest] - Final preflight before provider transport.
+ * @param {() => void} [p.onProviderRequestStart] - Marks provider transport as active.
+ * @param {() => void} [p.onProviderRequestEnd] - Clears the provider transport marker.
  * @returns {Promise<AttemptResult>}
  */
-async function runAttempt({ prompt, signal, profile, connection, timeoutMs, notify, usage }) {
+async function runAttempt({
+    prompt,
+    signal,
+    profile,
+    connection,
+    timeoutMs,
+    notify,
+    usage,
+    beforeRequest,
+    onProviderRequestStart,
+    onProviderRequestEnd,
+}) {
     // One read-through: the frozen Call Profile is the only source of the
     // system prompt; no helper receives it as a second, parallel fact.
     const systemPrompt = profile.policy.systemPrompt;
@@ -320,13 +363,27 @@ async function runAttempt({ prompt, signal, profile, connection, timeoutMs, noti
     }
 
     await traceSummarizerRequest({ connection, systemPrompt, prompt });
-    const rawResult = await sendAttemptRequest({
-        connection,
-        systemPrompt,
-        prompt,
-        signal,
-        timeoutMs,
-    });
+    const preflight = beforeRequest ? await beforeRequest(signal) : true;
+    if (preflight === false) {
+        return { status: 'aborted', error: new Error('Aborted by user') };
+    }
+    if (preflight === 'blocked') {
+        return { status: 'blocked' };
+    }
+
+    onProviderRequestStart?.();
+    let rawResult;
+    try {
+        rawResult = await sendAttemptRequest({
+            connection,
+            systemPrompt,
+            prompt,
+            signal,
+            timeoutMs,
+        });
+    } finally {
+        onProviderRequestEnd?.();
+    }
     trace('  sendSummarizerRequest returned:', rawResult?.substring?.(0, 50));
     return await processAttemptResult({ rawResult, prompt, profile, notify, usage });
 }

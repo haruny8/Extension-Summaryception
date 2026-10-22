@@ -62,7 +62,7 @@ describe('appendLayer0PromptConstraints', () => {
             appendLayer0PromptConstraints(
                 prompt,
                 settings,
-                resolveCallProfile(settings, { kind: 'auditor' }),
+                resolveCallProfile(settings, { kind: 'context-estimate' }),
             ),
         ).toBe(prompt);
     });

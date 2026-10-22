@@ -93,10 +93,6 @@ describe('resetSettingsToDefaults', () => {
             fallbackConnectionProfileId: 'fallback-1',
             fallbackSummarizerResponseLength: 555,
             fallbackRequestTimeoutSeconds: 70,
-            auditorConnectionSource: 'profile',
-            auditorConnectionProfileId: 'auditor-1',
-            auditorSummarizerResponseLength: 333,
-            auditorRequestTimeoutSeconds: 130,
         });
 
         resetSettingsToDefaults();
@@ -116,10 +112,6 @@ describe('resetSettingsToDefaults', () => {
             fallbackConnectionProfileId: 'fallback-1',
             fallbackSummarizerResponseLength: 555,
             fallbackRequestTimeoutSeconds: 70,
-            auditorConnectionSource: 'profile',
-            auditorConnectionProfileId: 'auditor-1',
-            auditorSummarizerResponseLength: 333,
-            auditorRequestTimeoutSeconds: 130,
         });
     });
     it('preserves every Connection Route key, the Layer 0 response length included', () => {

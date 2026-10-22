@@ -5,7 +5,6 @@ import { refreshFull } from '../foundation/refresh.js';
 import { commitSnippetMutation } from './snippet-commit.js';
 import { persistChatState } from './persist-state.js';
 import { removeMessageTokenCaches } from './token-count.js';
-import { removeCheckpoints } from './continuity-checkpoint.js';
 
 /**
  * Clear: remove every piece of Extension Chat Data from the chat and unhide its
@@ -33,7 +32,6 @@ export async function clearChatData() {
     const chat = getChat();
     removeMessageIdentities(chat);
     removeMessageTokenCaches(chat);
-    removeCheckpoints(chat);
 
     await persistChatState({ chatSave: 'immediate' });
     refreshFull();

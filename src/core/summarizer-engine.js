@@ -53,38 +53,68 @@ export const ELASTIC_STRATEGIES = Object.freeze({
  * @returns {Promise<import('./run-outcome.js').SummarizationRunOutcome>}
  */
 export async function runElasticAutoCycle(queue, { refreshUi, notify, gate, dispatch }) {
+    const generationEpoch = gate.getGenerationEpoch();
     if ((await gate.promptWorkGate('auto worker', { refreshUi })) === 'blocked') {
         queue.setPhase('paused');
         return { status: 'blocked' };
     }
 
-    const s = getEffectiveSettings();
-    if (!s.enabled || s.autoPaused) {
-        queue.setPhase('paused');
-        return { status: 'idle' };
+    gate.setAutomaticRequestWaiting(true);
+    /** @type {import('./summarizer-request.js').SummarizerDispatch['call']} */
+    const automaticDispatch = (request) =>
+        dispatch({
+            ...request,
+            beforeRequest: async (signal) => {
+                if (signal.aborted) {
+                    return false;
+                }
+                if (!(await gate.waitForGenerationToEnd(signal, generationEpoch))) {
+                    return signal.aborted ? false : 'blocked';
+                }
+                return request.beforeRequest ? await request.beforeRequest(signal) : true;
+            },
+            onProviderRequestStart: () => {
+                gate.setAutomaticRequestWaiting(false);
+                gate.setAutomaticProviderActive(true);
+            },
+            onProviderRequestEnd: () => {
+                gate.setAutomaticProviderActive(false);
+                gate.setAutomaticRequestWaiting(true);
+            },
+        });
+
+    try {
+        const s = getEffectiveSettings();
+        if (!s.enabled || s.autoPaused) {
+            queue.setPhase('paused');
+            return { status: 'idle' };
+        }
+
+        const prepared = await prepareSummaryCycle();
+        queue.setPhase('promoting');
+        const promotion = await drainPromotionOverflow({
+            maxConsecutiveFailures: 1,
+            notify,
+            gate,
+            dispatch: automaticDispatch,
+        });
+        if (promotion.attempts > 0 || promotion.status !== 'completed') {
+            return promotion;
+        }
+
+        const routePlan = await buildAutoSummaryRoutePlan(prepared.chat, prepared.store, s);
+        logRoutePlan(routePlan, s);
+
+        if (!routePlan.ready) {
+            return { status: 'idle' };
+        }
+
+        queue.setPhase('layer0');
+        return await processRoutePlan(routePlan, notify, gate, automaticDispatch);
+    } finally {
+        gate.setAutomaticRequestWaiting(false);
+        gate.setAutomaticProviderActive(false);
     }
-
-    const prepared = await prepareSummaryCycle();
-    queue.setPhase('promoting');
-    const promotion = await drainPromotionOverflow({
-        maxConsecutiveFailures: 1,
-        notify,
-        gate,
-        dispatch,
-    });
-    if (promotion.attempts > 0 || promotion.status !== 'completed') {
-        return promotion;
-    }
-
-    const routePlan = await buildAutoSummaryRoutePlan(prepared.chat, prepared.store, s);
-    logRoutePlan(routePlan, s);
-
-    if (!routePlan.ready) {
-        return { status: 'idle' };
-    }
-
-    queue.setPhase('layer0');
-    return await processRoutePlan(routePlan, notify, gate, dispatch);
 }
 
 /**

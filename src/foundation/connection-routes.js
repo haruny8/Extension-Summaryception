@@ -9,7 +9,7 @@ import { SLIDER_LIMITS } from './constants.js';
  */
 
 /**
- * @typedef {'layer0' | 'merge' | 'fallback' | 'auditor'} ConnectionRouteId
+ * @typedef {'layer0' | 'merge' | 'fallback'} ConnectionRouteId
  */
 
 /**
@@ -127,25 +127,6 @@ export const CONNECTION_ROUTES = Object.freeze({
             }),
         ]),
     }),
-    auditor: Object.freeze({
-        id: 'auditor',
-        sourceKey: 'auditorConnectionSource',
-        profileKey: 'auditorConnectionProfileId',
-        responseLengthKey: 'auditorSummarizerResponseLength',
-        timeoutKey: 'auditorRequestTimeoutSeconds',
-        sourceOptions: Object.freeze(['inherit', 'default', 'profile']),
-        providerSources: Object.freeze(['default', 'profile']),
-        defaultSource: 'inherit',
-        panels: Object.freeze([
-            Object.freeze({
-                panel: 'advanced',
-                prefix: 'summaryception_auditor',
-                controlPrefix: 'sc_auditor',
-                hasResponseLengthRow: true,
-                hasTimeoutRow: true,
-            }),
-        ]),
-    }),
 });
 
 /**
@@ -159,17 +140,6 @@ export const NARRATIVE_CHAIN = Object.freeze({
     primary: 'layer0',
     promotionOverride: 'merge',
     fallback: 'fallback',
-});
-
-/**
- * The Auditor's chain: one hop on its own route (ADR-0009). An inherited
- * Auditor runs the Narrative Chain exactly as a Layer 0 call would; a
- * separated Auditor runs its single hop with no failover; the Catch-up
- * Window, not a second connection, recovers a missed audit.
- * @type {Readonly<{ primary: ConnectionRouteId }>}
- */
-export const AUDITOR_CHAIN = Object.freeze({
-    primary: 'auditor',
 });
 
 /**

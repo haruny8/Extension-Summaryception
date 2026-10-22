@@ -153,19 +153,9 @@ describe('enabled content model', () => {
             off: true,
             easyPanel: false,
             advancedPanel: true,
-            continuitySection: false,
             stop: false,
             resume: false,
         });
-    });
-
-    it('gates the continuity section on the Advanced panel', () => {
-        expect(buildEnabledContentModel(ON_ADVANCED, { autoPaused: false }).continuitySection).toBe(
-            true,
-        );
-        expect(buildEnabledContentModel(ON_EASY, { autoPaused: false }).continuitySection).toBe(
-            false,
-        );
     });
 
     it('swaps Stop for Resume while the Pause Latch is set', () => {

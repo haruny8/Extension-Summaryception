@@ -106,18 +106,34 @@ export class RequestRunner {
      * @param {string} p.prompt - Fully substituted user prompt
      * @param {string} p.repairPrompt - Fully substituted Layer 0 repair prompt
      * @param {AbortSignal} p.signal - Abort signal
+     * @param {(signal: AbortSignal) => Promise<boolean | 'blocked'>} [p.beforeRequest] - Optional final preflight; false aborts or 'blocked' defers before the provider call.
+     * @param {() => void} [p.onProviderRequestStart] - Marks the provider transport as active.
+     * @param {() => void} [p.onProviderRequestEnd] - Clears the provider transport marker.
      * @param {import('./call-profile.js').CallProfile} p.profile - Call profile resolved at dispatch
      * @param {import('./notify.js').NotifyAdapter} [p.notify] - Notify adapter for mid-run notices; defaults to the silent adapter
      * @param {import('./summarizer-usage.js').UsageLedger} p.usage - Usage Ledger the Call Session records token usage into
      * @returns {Promise<import('./run-outcome.js').RunOutcome>} Structured outcome; `completed` carries the summary text and the resolved profile.
      */
-    async run({ prompt, repairPrompt, signal, profile, notify = silentAdapter, usage }) {
+    async run({
+        prompt,
+        repairPrompt,
+        signal,
+        beforeRequest,
+        onProviderRequestStart,
+        onProviderRequestEnd,
+        profile,
+        notify = silentAdapter,
+        usage,
+    }) {
         // One Call Session per summarizer call: it carries the call facts
         // across every route cycle and hop; the failure budget stays here.
         const session = createAttemptSession({
             prompt,
             repairPrompt,
             signal,
+            beforeRequest,
+            onProviderRequestStart,
+            onProviderRequestEnd,
             profile,
             notify,
             usage,
@@ -231,6 +247,9 @@ export class RequestRunner {
         }
         if (last.status === 'aborted') {
             return buildRouteCycleResult(abortRun(session.notify));
+        }
+        if (last.status === 'blocked') {
+            return buildRouteCycleResult(buildBlockedOutcome());
         }
         if (!isRetryExhaustion(last) && last.status !== 'hard-failover') {
             return buildRouteCycleResult(

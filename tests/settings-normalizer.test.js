@@ -31,15 +31,6 @@ describe('normalizeSettings', () => {
         expect(settings.verbatimTokenBudget).toBe(SLIDER_LIMITS.verbatimTokenBudget.MIN);
     });
 
-    it('coerces the Continuity toggles to strict booleans and reports the repair', () => {
-        const repaired = normalize({ continuityEnabled: 'yes' });
-        expect(repaired.settings.continuityEnabled).toBe(false);
-        expect(repaired.changed).toBe(true);
-
-        expect(normalize().settings.continuityEnabled).toBe(false);
-        expect(normalize({ continuityEnabled: true }).settings.continuityEnabled).toBe(true);
-    });
-
     it('remaps persisted append-only mode to prefix_cache and resets invalid modes', () => {
         expect(normalize({ memoryMode: 'append_only' }).settings.memoryMode).toBe(
             MEMORY_MODES.PREFIX_CACHE,
@@ -70,15 +61,6 @@ describe('normalizeSettings', () => {
         });
     });
 
-    it('clamps auditor route timeouts to the slider bounds', () => {
-        const { settings } = normalize({
-            auditorRequestTimeoutSeconds: 8000,
-        });
-        expect(settings).toMatchObject({
-            auditorRequestTimeoutSeconds: SLIDER_LIMITS.auditorRequestTimeoutSeconds.MAX,
-        });
-    });
-
     it('defaults and clamps the provider cache TTL', () => {
         expect(normalize({ cacheTtlMinutes: 9999 }).settings.cacheTtlMinutes).toBe(
             SLIDER_LIMITS.cacheTtlMinutes.MAX,
@@ -97,19 +79,6 @@ describe('normalizeSettings', () => {
                 defaultSettings[route.sourceKey],
             );
         }
-    });
-
-    it('resets invalid auditor connection sources to their defaults', () => {
-        const { settings } = normalize({
-            auditorConnectionSource: 'bogus',
-        });
-        expect(settings).toMatchObject({
-            auditorConnectionSource: defaultSettings.auditorConnectionSource,
-        });
-
-        expect(
-            normalize({ auditorConnectionSource: 'default' }).settings.auditorConnectionSource,
-        ).toBe('default');
     });
 
     it('enforces the retention invariants after clamping', () => {

@@ -645,6 +645,10 @@
     min-height: 30px;
     font-size: 0.9em;
 }
+#sc_strip_patterns.sc-textarea {
+    height: 115px !important;
+}
+
 .sc-settings .menu_button_danger { border-color: var(--sc-danger); color: var(--sc-danger); }
 .sc-settings .menu_button_danger:hover { background: rgba(255, 107, 107, 0.14); }
 .sc-memory-grid {
@@ -1048,14 +1052,4 @@
         border-radius: 0;
         padding: 12px;
     }
-}
-
-/* Continuity Mark (glossary: Continuity Mark / Live Mark) on chat messages. */
-.mes.sc_continuity_marked .name_text::after {
-    content: ' \2713';
-    color: var(--okGreen70a, rgba(0, 100, 0, 0.7));
-}
-.mes.sc_continuity_live .name_text::after {
-    content: ' \2713 \25CF';
-    color: var(--okGreen70a, rgba(0, 100, 0, 0.7));
 }

@@ -1,6 +1,4 @@
 import {
-    DEFAULT_AUDITOR_SYSTEM_PROMPT,
-    DEFAULT_AUDITOR_USER_PROMPT,
     DEFAULT_INJECTION_TEMPLATE,
     DEFAULT_LAYER0_SOURCE_BUDGET_PROMPT,
     DEFAULT_PROMOTION_SYSTEM_PROMPT,
@@ -141,11 +139,9 @@ export const SLIDER_LIMITS = Object.freeze({
     requestTimeoutSeconds: Object.freeze({ MIN: 60, MAX: 7200, STEP: 10 }),
     mergeRequestTimeoutSeconds: Object.freeze({ MIN: 60, MAX: 7200, STEP: 10 }),
     fallbackRequestTimeoutSeconds: Object.freeze({ MIN: 60, MAX: 7200, STEP: 10 }),
-    auditorRequestTimeoutSeconds: Object.freeze({ MIN: 60, MAX: 7200, STEP: 10 }),
     summarizerResponseLength: Object.freeze({ MIN: 0, MAX: null, STEP: 100 }),
     mergeSummarizerResponseLength: Object.freeze({ MIN: 0, MAX: null, STEP: 100 }),
     fallbackSummarizerResponseLength: Object.freeze({ MIN: 0, MAX: null, STEP: 100 }),
-    auditorSummarizerResponseLength: Object.freeze({ MIN: 0, MAX: null, STEP: 100 }),
     customMemoryDepth: Object.freeze({ MIN: 0, MAX: 10000, STEP: 1 }),
 });
 
@@ -213,19 +209,10 @@ export function listNonEmptyLayers(store) {
 
 // ─── Default Settings ────────────────────────────────────────────────
 
-/**
- * Catch-up Window: one combined Auditor call covers at most this many
- * Exchanges (most recent first); it bounds coverage, never turn_count. The
- * injection slot reuses it to bound the depth shift a single catch-up causes.
- */
-export const CATCHUP_WINDOW_EXCHANGES = 4;
-
 export const defaultSettings = Object.freeze({
     enabled: true,
     // Latched by Stop; blocks only automatic cycles. Manual runs ignore it.
     autoPaused: false,
-    // Opt-in Continuity Auditor (issue #28); off until the user enables it.
-    continuityEnabled: false,
     memoryMode: MEMORY_MODES.BALANCED,
     cacheTtlMinutes: 30, // provider cache lifetime, Prefix Cache only
     // Decoupled from uiMode: which complexity panel (Easy/Advanced) to render,
@@ -253,16 +240,12 @@ export const defaultSettings = Object.freeze({
     summarizerRepairPrompt: DEFAULT_SUMMARIZER_REPAIR_PROMPT,
     promotionSystemPrompt: DEFAULT_PROMOTION_SYSTEM_PROMPT,
     promotionUserPrompt: DEFAULT_PROMOTION_USER_PROMPT,
-    auditorSystemPrompt: DEFAULT_AUDITOR_SYSTEM_PROMPT,
-    auditorUserPrompt: DEFAULT_AUDITOR_USER_PROMPT,
 
     summarizerSystemPromptPreset: 'narrative', // 'narrative' | 'custom'
     promptPreset: 'narrative', // 'narrative' | 'custom'
     summarizerRepairPromptPreset: 'narrative', // 'narrative' | 'custom'
     promotionSystemPromptPreset: 'narrative', // 'narrative' | 'custom'
     promotionPromptPreset: 'narrative', // 'narrative' | 'custom'
-    auditorSystemPromptPreset: 'continuity', // 'continuity' | 'custom'
-    auditorPromptPreset: 'continuity', // 'continuity' | 'custom'
     applyRegexScripts: true, // true = apply ST's regex scripts to passage text before summarizing
     // true = also hide text-less messages (images, tool calls) inside the summarized
     // range. They carry no text to summarize, so without this they stay visible to the
@@ -285,8 +268,6 @@ export const defaultSettings = Object.freeze({
     traceMode: false,
     promptInputLogMode: false,
     promptOutputLogMode: false,
-    continuityStateLogMode: false,
-    continuityStateLogFullMode: false,
 
     // ─── Connection Settings ─────────────────────────────────────
     connectionSource: 'default', // 'default' | 'profile'
@@ -305,12 +286,6 @@ export const defaultSettings = Object.freeze({
     fallbackSummarizerResponseLength: 0,
     fallbackConnectionProfileId: '',
     fallbackRequestTimeoutSeconds: 120,
-
-    // Dedicated Continuity Auditor connection, separate from the Narrative Chain (ADR-0009).
-    auditorConnectionSource: 'inherit', // 'inherit' | 'default' | 'profile'
-    auditorSummarizerResponseLength: 0,
-    auditorConnectionProfileId: '',
-    auditorRequestTimeoutSeconds: 120, // auditor primary route
 });
 
 // ─── Prompt Presets ──────────────────────────────────────────────────
@@ -340,21 +315,11 @@ export const PROMOTION_SYSTEM_PROMPT_PRESETS = {
     custom: null,
 };
 
-export const AUDITOR_PROMPT_PRESETS = {
-    continuity: defaultSettings.auditorUserPrompt,
-    custom: null, // Uses whatever is in the textarea
-};
-
-export const AUDITOR_SYSTEM_PROMPT_PRESETS = {
-    continuity: defaultSettings.auditorSystemPrompt,
-    custom: null,
-};
-
 export const DEFAULT_PROMPT_PRESET = 'narrative';
 export const DEFAULT_PROMOTION_PROMPT_PRESET = 'narrative';
 
 /**
- * The eight (presetKey, settingKey) prompt pairs shared by persistence
+ * The five (presetKey, settingKey) prompt pairs shared by persistence
  * normalization and the prompt UI bindings. Order defines UI field order.
  * @type {ReadonlyArray<{ presetKey: string, settingKey: string }>}
  */
@@ -373,11 +338,6 @@ export const PROMPT_SETTING_KEYS = Object.freeze([
         settingKey: 'promotionSystemPrompt',
     }),
     Object.freeze({ presetKey: 'promotionPromptPreset', settingKey: 'promotionUserPrompt' }),
-    Object.freeze({
-        presetKey: 'auditorSystemPromptPreset',
-        settingKey: 'auditorSystemPrompt',
-    }),
-    Object.freeze({ presetKey: 'auditorPromptPreset', settingKey: 'auditorUserPrompt' }),
 ]);
 
 // ─── Retry Configuration ─────────────────────────────────────────────

@@ -9,15 +9,13 @@
  */
 
 import { LOG_PREFIX } from './src/foundation/constants.js';
-import { getChat, getContext, saveChat, saveMetadata } from './src/foundation/context.js';
-import { saveChatStore } from './src/foundation/chat-store.js';
+import { getContext, saveChat, saveMetadata } from './src/foundation/context.js';
 import { initChatPersistence } from './src/core/persist-state.js';
-import { initRefreshPort, refreshPreview, refreshUi } from './src/foundation/refresh.js';
+import { initRefreshPort, refreshUi } from './src/foundation/refresh.js';
 import { getSettings } from './src/foundation/settings.js';
 import { initSnippetBrowser } from './src/entry/ui-snippets.js';
 import { createSummarizerQueue } from './src/core/summarizer-queue.js';
 import { createSummarizerDispatch } from './src/core/summarizer-request.js';
-import { createContinuityAuditor } from './src/core/continuity-audit.js';
 import { createForegroundGate } from './src/core/foreground-gate.js';
 import { createUsageLedger } from './src/core/summarizer-usage.js';
 import { createToastrNotifyAdapter } from './src/entry/ui-dialogs.js';
@@ -27,8 +25,6 @@ import { initConnectionUI } from './src/entry/ui-connection.js';
 import { initSettingsHelp } from './src/entry/settings-help.js';
 import { initSettingsTabs } from './src/entry/ui-tabs.js';
 import { createMemoryInjectionWriter } from './src/features/injection.js';
-import { updateContinuityInjection } from './src/features/continuity-injection.js';
-import { updateContinuityMarker } from './src/entry/continuity-marker.js';
 import {
     bindPromptFreezeRecoveryEvents,
     onAppReady,
@@ -70,12 +66,6 @@ import { registerSlashCommands } from './src/entry/commands.js';
         gate,
         dispatch: dispatch.call,
     };
-    const continuityAuditor = createContinuityAuditor({
-        dispatch: dispatch.call,
-        saveChatStore,
-        refreshPreview,
-        getChat,
-    });
     initRefreshPort({
         // Every prompt-affecting effect enters through the Foreground Gate
         // (ADR-0016); mid-generation requests queue until the freeze lifts.
@@ -88,16 +78,6 @@ import { registerSlashCommands } from './src/entry/commands.js';
                 },
             });
         },
-        updateContinuityInjection: () => {
-            void gate.runEffect({
-                kind: 'continuity-refresh',
-                apply: () => {
-                    updateContinuityInjection({ rerollTail: gate.isRerollTail() });
-                    return true;
-                },
-            });
-        },
-        updateContinuityMarker,
         updateUI: (options) => updateUI({ ...options, queue }),
         updatePreview: syncLLMContextPreview,
     });
@@ -117,14 +97,8 @@ import { registerSlashCommands } from './src/entry/commands.js';
     initConnectionUI();
     await writer.registerMacro();
 
-    eventSource.on(eventTypes.MESSAGE_RECEIVED, (messageIndex, type) =>
-        onMessageReceived(/** @type {number} */ (messageIndex), {
-            notify,
-            type,
-            auditor: continuityAuditor,
-            queue,
-            gate,
-        }),
+    eventSource.on(eventTypes.MESSAGE_RECEIVED, (messageIndex) =>
+        onMessageReceived(/** @type {number} */ (messageIndex), { queue }),
     );
     eventSource.on(eventTypes.CHAT_CHANGED, () => onChatChanged({ gate, queue }));
     eventSource.on(eventTypes.GENERATION_STARTED, (...args) =>

@@ -1,29 +1,11 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { clearChatData } from '../src/core/chat-data.js';
-import {
-    deriveContinuityCoverage,
-    deriveContinuityMarks,
-} from '../src/core/continuity-coverage.js';
 import { initRefreshPort } from '../src/foundation/refresh.js';
 import { installSummaryContext, makeMessage, makeSummaryStore } from './test-helpers.js';
 
-const continuityState = () => ({
-    turn_count: 2,
-    bonds: { 'Quipsy↔User': { bond: 1, sparks: 0, grudge: 0 } },
-    agendas: {},
-    gm_notes: ['[T] Keep this thread'],
-    physics: {
-        location: 'Salon',
-        environment: 'Warm',
-        posture_and_position: 'Seated',
-        contact_points: 'None',
-        clothing_state: 'Robe',
-    },
-});
-
 /**
- * One chat carrying all four shapes of Extension Chat Data, plus a foreign extra
+ * One chat carrying the extension's active chat data, plus a foreign extra
  * that happens to start with `sc_` and an unrelated chat-metadata key. The
  * foreign extra is the pin on the retired prefix sweep (ADR-0027).
  */
@@ -42,7 +24,7 @@ function installDirtyChat() {
         },
         {
             ...makeMessage({ scId: 'assistant-id' }),
-            extra: { reasoning: 'keep', summaryception_continuity: continuityState() },
+            extra: { reasoning: 'keep' },
         },
     ];
     const store = makeSummaryStore({
@@ -99,21 +81,10 @@ describe('clearChatData', () => {
         expect(chat[1].extra).toEqual({ reasoning: 'keep' });
     });
 
-    it('leaves every Continuity read model empty', async () => {
-        const { chat } = installDirtyChat();
-
-        await clearChatData();
-
-        expect(deriveContinuityMarks(chat)).toEqual({ markedIndices: [], liveIndex: null });
-        expect(deriveContinuityCoverage(chat).state).toBeNull();
-    });
-
     it('re-renders the visible state and the injections from the wiped chat', async () => {
         installDirtyChat();
         const port = {
             updateInjection: vi.fn(),
-            updateContinuityInjection: vi.fn(),
-            updateContinuityMarker: vi.fn(),
             updateUI: vi.fn(),
             updatePreview: vi.fn(),
         };
@@ -122,8 +93,6 @@ describe('clearChatData', () => {
         await clearChatData();
 
         expect(port.updateInjection).toHaveBeenCalled();
-        expect(port.updateContinuityInjection).toHaveBeenCalled();
-        expect(port.updateContinuityMarker).toHaveBeenCalled();
         expect(port.updateUI).toHaveBeenCalled();
     });
 });

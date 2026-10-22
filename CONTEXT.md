@@ -148,7 +148,7 @@ The per-call policy resolved once from settings and the call category at dispatc
 Code: `resolveCallProfile` (src/core/call-profile.js)
 
 **Connection Route**:
-One named connection target a summarizer call can run on, with its own source, profile, response length, and timeout settings. The set is the Layer 0 route, the Layer 1+ merge override, the fallback route, and the Auditor's primary and fallback routes.
+One named connection target a summarizer call can run on, with its own source, profile, response length, and timeout settings. The set is the Layer 0 route, the Layer 1+ merge override, and the fallback route.
 Code: src/foundation/connection-routes.js
 _Avoid_: connection card, provider, backend
 
@@ -163,7 +163,7 @@ The new summary / deeper merge / fallback trio is the connection routes, not thi
 Code: `SummaryRoutePlan` (src/core/summarization-routes.js)
 
 **Narrative Chain**:
-The Layer 0 route plus its configured fallback route, used as one failover unit. The Auditor's optional last-resort failover runs the Narrative Chain when both Auditor routes fail.
+The Layer 0 route plus its configured fallback route, used as one failover unit.
 _Avoid_: narrative models, narrative summarizer chain
 
 **Route Series**:
@@ -228,7 +228,7 @@ A user-triggered summarization run through the Engine Gate, driven by one strate
 Code: `runManual` (src/core/summarizer-engine.js)
 
 **Foreground Gate**:
-The one protocol every prompt mutation crosses. The gate owns the freeze boundary and decides whether prompt-affecting work runs now, queues until the freeze lifts, or re-runs when it lifts; re-running — an effect that reports it could not finish, a commit that reports itself stale — is the gate's job, never the caller's. Pre-freeze steps (a reroll's checkpoint drop and slot refresh) enter through the gate's `beforeFreeze` hook, not entry sequencing; the renderers render and never self-check the freeze. One instance exists, built at the composition root. The Engine Gate decides when to summarize; the Foreground Gate decides when prompt mutations are safe.
+The one protocol every prompt mutation crosses. The gate owns the freeze boundary and decides whether prompt-affecting work runs now, queues until the freeze lifts, or re-runs when it lifts; re-running — an effect that reports it could not finish, a commit that reports itself stale — is the gate's job, never the caller's. Pre-freeze prompt steps enter through the gate's `beforeFreeze` hook, not entry sequencing; the renderers render and never self-check the freeze. One instance exists, built at the composition root. The Engine Gate decides when to summarize; the Foreground Gate decides when prompt mutations are safe.
 Code: `createForegroundGate` (src/core/foreground-gate.js); `beginGeneration` / `endGeneration` / `commitWhenSafe` / `runEffect` / `promptWorkGate` / `heal` / `isFrozen` / `reset`
 _Avoid_: Stop guard, renderer freeze check
 
@@ -242,87 +242,8 @@ A DOM-free plain-data model for one UI region (Context Budget bar, Trigger Gauge
 Code: `buildContextBudgetViewModel` / `buildTriggerGaugeModel` (src/entry/ui-view-models.js)
 _Avoid_: presenter, view helper
 
-**Continuity Engine**:
-The opt-in subsystem that tracks live roleplay state outside the main generation stream: an Auditor extracts, deterministic code applies, the result injects in-chat.
-_Avoid_: sync mode, state engine
-
-**Auditor**:
-The background extraction call that reads a finished turn and emits semantic event flags for the Continuity State. It runs one settled pass over its Connection Route — no second connection, no LLM repair call — and it never does arithmetic and never writes counters.
-_Avoid_: secondary model, extractor, auditor LLM
-
-**Continuity Audit**:
-The lifecycle that turns un-audited Exchanges into a committed Continuity Checkpoint: the gate, the single Auditor call, validation, the flags rulebook, the checkpoint write, and the persist that revalidates chat identity around the host save. It reads the chat, the Chat Store, and the effective settings through its arguments and its injected dependencies, and returns a Run Outcome at the summarizer-request level.
-Code: `createContinuityAuditor` / `isAuditorTriggerMessage` (src/core/continuity-audit.js)
-_Avoid_: audit runner, continuity job
-
-**Parse Recovery**:
-The deterministic waterfall that turns a malformed Auditor reply into a parseable Continuity State JSON before classification. Tiers run cheapest-first; structural completion outranks block extraction because completion preserves the whole draft. The tier that rescued the reply is reported to the audit log; a reply no tier rescues is a failed draft the Catch-up Window re-covers. Never applied to stored checkpoints, which are valid by construction.
-Code: `recoverContinuityJson` (src/core/parse-recovery.js)
-_Avoid_: json repair, output sanitization
-
-**Continuity State**:
-The bond, agenda, GM-note, and physics JSON the Continuity Engine maintains for the chat. It exists to steer the main model: the Continuity Block is its only output, and the User never reads the state outside diagnostics.
-_Avoid_: roleplay state, sync state
-
-**Continuity Checkpoint**:
-The per-message copy of the Continuity State an audit commits into the audited reply's message extra. The newest assistant message carrying a checkpoint is the live Continuity State; a newer audit overwrites the payload in place. A swipe or regenerate that replaces the chat's last message drops that reply's checkpoint at generation start, so the rerolled answer is unaudited until the next audit re-covers it; a regenerate over a trailing user turn replaces nothing and keeps it.
-Code: `attachCheckpoint` / `discardCheckpoint` / `removeCheckpoints` / `findLiveCheckpoint` (src/core/continuity-checkpoint.js)
-_Avoid_: snapshot, state backup
-
-**Continuity Mark**:
-The indicator the extension adds to the chat view of every assistant reply whose message extra carries a Continuity Checkpoint payload. The reply holding the live checkpoint carries a second, distinct mark.
-Code: `updateContinuityMarker` (src/entry/continuity-marker.js), `deriveContinuityMarks` (src/core/continuity-coverage.js)
-_Avoid_: continuity badge, audit checkmark
-
-**Live Mark**:
-The second, distinct Continuity Mark on the reply holding the live Continuity Checkpoint, the newest payload message. The Live Mark implies the base Continuity Mark.
-Code: `deriveContinuityMarks` (src/core/continuity-coverage.js)
-_Avoid_: current checkpoint badge, anchor dot
-
-**Continuity Coverage**:
-The one read model of the chat for the Continuity Engine: the live Continuity Checkpoint, the un-audited replies after it, the Catch-up Window, the Turn Count, the staleness verdict, and the Continuity Block's prompt placement. The Auditor's lifecycle and the block injection both consume it, so coverage derives in one place instead of twice.
-Code: `deriveContinuityCoverage` (src/core/continuity-coverage.js)
-_Avoid_: continuity snapshot, sync read model
-
-**Reroll Tail**:
-The chat's last message while a swipe or regenerate generation is replacing it. The host excludes that message from the prompt chat, so the Continuity Block's placement counts the prompt view, which drops the tail; the stale marker keeps reading the chat view.
-Code: `isRerollTail` (src/core/foreground-gate.js)
-_Avoid_: swiped message, pending reply
-
-**Continuity Block**:
-The compact in-chat prompt injection rendered from the Continuity State.
-_Avoid_: state block, active continuity
-
-**Exchange**:
-One user message plus its completed assistant reply. The unit the Auditor and the Catch-up Window count.
-_Avoid_: message pair, turn
-
-**Catch-up Window**:
-The most recent four Exchanges a single combined Auditor call covers after missed turns. Older Exchanges stay unknown to the Continuity State; the window only bounds coverage, never `turn_count`.
-_Avoid_: catch-up cap, recovery span
-
-**Turn Count**:
-The total number of Exchanges in the chat, re-derived by code from the chat at every audit. Coverage never feeds it: the Catch-up Window bounds what gets audited and the live Continuity Checkpoint anchors where coverage resumes, never the count. Ghosting never removes an Exchange from it: a reply hidden from the prompt is still an Exchange (ADR-0028).
-Code: `turn_count` (src/core/continuity-state.js), `deriveTurnCount` (src/core/continuity-state.js)
-_Avoid_: audited turns, covered turns
-
-**Auditor Flags**:
-The five per-pair booleans one Auditor reply carries (positive_interaction, slight, insult, betrayal, apology). All bond, sparks, grudge, and gate numbers are derived from them by code.
-Code: `applyPairFlags` (src/core/continuity-state.js)
-_Avoid_: sentiment scores, bond math
-
-**Conversion**:
-The modulo bookkeeping code applies to bond pairs: at every Turn Count multiple of 5 accumulated Sparks convert into Bond (Grudge dulls the gain to zero); at every multiple of 3 Grudge decays. A Conversion evaluates only on an audit whose Turn Count lands on the multiple; multiples skipped inside one Catch-up Window span do not replay.
-Code: `applyPairFlags` (src/core/continuity-state.js)
-_Avoid_: spark spend, bond payout
-
-**Canonical-name Registry**:
-The naming rule for Continuity State keys: copy each character's name exactly as the character card spells it (Latin spelling, never inflected prose forms); the player is always `User`, pair keys are `Name↔User`.
-Code: `USER_PAIR_PATTERN` (src/core/continuity-state.js); rule text in the Auditor default prompt
-_Avoid_: name normalization
-
 **Extension Chat Data**:
-Everything Summaryception writes into a chat: the Chat Store in chat metadata, the stable message identifiers, the message token cache, and the Continuity Checkpoints. Each shape is removed by the module that writes it; nothing identifies it by a key-name convention.
+Everything Summaryception writes into a chat: the Chat Store in chat metadata, the stable message identifiers, and the message token cache. Each shape is removed by the module that writes it; nothing identifies it by a key-name convention.
 Code: `clearChatData` (src/core/chat-data.js)
 _Avoid_: extension extras, sc_ keys
 

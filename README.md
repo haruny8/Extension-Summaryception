@@ -39,7 +39,6 @@ That sounds abstract until you hit a 2,000 message chat and the model still reme
 - Ghosts summarized messages with SillyTavern's `/hide`, so they stop reaching the model but remain readable in the UI.
 - Injects the assembled memory through SillyTavern extension prompts, or exposes it as `{{summaryception_memory}}` for custom prompt layouts.
 - Runs background summarization without mutating the prompt during an active generation.
-- Optional Continuity Auditor keeps a live game-state in an `<active_continuity>` block next to the injected memory.
 
 ## Install
 
@@ -119,62 +118,6 @@ There are three routes:
 
 OpenAI-compatible local endpoints may need SillyTavern's CORS proxy. Since v20, summarization tasks do not use presets, so it does not matter what your connection is linked to.
 
-## Continuity Auditor
-
-Everything above is narrative memory: prose about what happened. The Continuity Auditor is the other half. It is an opt-in background call that audits each finished reply in solo chats and keeps a live game-state: positions, relationship bonds, NPC agendas, secrets. Off by default.
-
-Why bother? Without it, keeping the story straight is the main model's job. It spends its output re-stating who stands where, how the relationship shifted, and which agenda moved, and that bookkeeping crowds out the scene itself. The Auditor does that bookkeeping outside the main model and hands the result back as a compact block, so replies come out shorter and more focused on what is actually happening. The block describes the last audited reply, so it runs one message behind the live chat.
-
-Enable it under Continuity Auditor and give it a fast model. It runs after every reply, so latency matters more than brains here. Connection settings live under Models → Continuity Connections, separate from the summarizer routes: it inherits Layer 0 unless you point it elsewhere, and "Fall back to the Narrative Chain" lets it use the Layer 0 chain as last resort when both Auditor routes fail.
-
-The game-state is four things:
-
-- Scene and positioning: location, environment, posture, contact points, clothing.
-- Bonds: one per character pair, with Sparks and Grudge. A high enough bond shows a gate: hug, handhold, kiss, intimacy.
-- Agendas: each NPC's current task and step.
-- Notes: short GM remarks, with `[S]` marking secrets some characters do not know.
-
-The Auditor only reads and flags. All the math is done by code, and the result is stored on the audited reply as a checkpoint. The newest checkpoint is the live state.
-
-### What the model gets
-
-The live checkpoint is injected into the chat itself, near the newest messages, as a system block:
-
-```text
-<active_continuity>
-[SCENE & POSITIONING]
-Location: Old mill - upstairs loft
-Environment: rain against the shutters, one lantern lit
-Physics: Mira sitting on the windowsill, feet off the floor
-Contact: Dave by the door, arms crossed
-Clothing: Mira barefoot, coat still wet
-
-[RELATIONSHIP GATES]
-Mira & Dave: BOND +6 (Sparks: 2, Grudge: 0); Gate: handhold
-
-[SECRETS & ASYMMETRIC KNOWLEDGE]
-[S] Mira never actually lost the key
-
-[ACTIVE AGENDAS & THREADS]
-- Mira: find out who paid the mercs (Step 2/5: active)
-- Dave: quiet about the second key
-</active_continuity>
-```
-
-This is the real renderer's output shape: only non-empty sections appear, secret `[S]` notes get their own section, and ordinary GM notes render under agendas as active threads. Replies that have not been audited yet are covered by the last checkpoint, and the block says so until the Auditor catches up.
-
-### The green check mark
-
-Every audited reply gets a green ✓ after the character name in chat. The newest one also shows a ●. That reply holds the live checkpoint the injected block comes from. Swipe or regenerate the last reply and its checkpoint is dropped, so the check vanishes until the new answer gets audited.
-
-### How it works with narrative memory
-
-The layers summarize the story. The Auditor tracks the state. One knows what happened, the other knows what is true right now, and they share nothing at runtime: separate routes, separate prompt.
-
-### Preset
-
-Try it with [ff_summaryception_5.5.0.json](docs/preset/ff_summaryception_5.5.0.json)
-
 ## Slash commands
 
 `/sc-status` shows the current summarized boundary and layer counts.
@@ -199,7 +142,6 @@ Older major versions are still available as branches. Open SillyTavern's extensi
 
 <img src="img/how_to_switch_branch.png" width="700" alt="Branch button beside Summaryception in SillyTavern's extension list" />
 
-- **v24:** Continuity Auditor
 - **v23:** Closed most github issues
 - **v22:** Big code refactor
 
