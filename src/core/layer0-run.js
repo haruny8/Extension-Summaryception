@@ -154,7 +154,7 @@ async function runPassages({ routePlan, notify, signal, progress, gate, dispatch
 /**
  * The verdict for a run that stopped before its commit: only a run that
  * captured nothing at all was idle, everything else reports what it captured.
- * @param {'idle' | 'aborted' | 'failed'} status
+ * @param {'idle' | 'aborted' | 'blocked' | 'failed'} status
  * @param {number} captured - Passages summarized before the run stopped
  * @returns {import('./run-outcome.js').SummarizationRunOutcome}
  */
@@ -166,6 +166,9 @@ function verdictFor(status, captured) {
     }
     if (status === 'aborted') {
         return { status: 'aborted', completed: captured };
+    }
+    if (status === 'blocked') {
+        return { status: 'blocked', completed: captured };
     }
     return { status: 'failed', completed: captured, failed: 1 };
 }
@@ -329,7 +332,7 @@ function createBatchProgress(notify) {
  * @param {number} p.total
  * @param {import('./summarizer-request.js').SummarizerDispatch['call']} p.dispatch - Summarizer Dispatch the request goes through.
  * @param {AbortSignal} [p.signal]
- * @returns {Promise<{status: 'completed', snapshot: import('./summarizer-snapshot.js').SummarizationJobSnapshot, summary: string} | {status: 'idle' | 'aborted' | 'failed'}>}
+ * @returns {Promise<{status: 'completed', snapshot: import('./summarizer-snapshot.js').SummarizationJobSnapshot, summary: string} | {status: 'idle' | 'aborted' | 'blocked' | 'failed'}>}
  */
 async function runPassage({
     chat,
@@ -389,6 +392,12 @@ async function runPassage({
     if (outcome.status === 'aborted' || signal?.aborted) {
         progress.settle(BATCH_PROGRESS.ABORTED);
         return { status: 'aborted' };
+    }
+    if (outcome.status === 'blocked') {
+        // The generation gate deferred this call; the queue must rerun it, not
+        // count it as a provider failure.
+        progress.settle();
+        return { status: 'blocked' };
     }
     if (outcome.status !== 'completed' || !outcome.text) {
         progress.settle();

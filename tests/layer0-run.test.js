@@ -118,7 +118,6 @@ describe('Layer 0 run — one Passage', () => {
 
     it.each([
         ['aborted', 'batch-memory-aborted', { status: 'aborted', completed: 0 }],
-        ['blocked', 'batch-memory-failed', { status: 'failed', completed: 0, failed: 1 }],
         ['failed', 'batch-memory-failed', { status: 'failed', completed: 0, failed: 1 }],
     ])(
         'closes the progress with a %s terminal and skips the commit',
@@ -142,6 +141,24 @@ describe('Layer 0 run — one Passage', () => {
             expect(metadata.summaryception.mutationEpoch).toBe(0);
         },
     );
+
+    it('reports a deferred dispatch as blocked without a commit so the queue reruns it', async () => {
+        const recorder = makeNotifyRecorder();
+        const metadata = { summaryception: makeSummaryStore() };
+        installSummaryContext({ chat: buildChat(), metadata });
+        dispatch.mockResolvedValue({ status: 'blocked' });
+
+        await expect(runOnePassage(recorder)).resolves.toEqual({ status: 'blocked', completed: 0 });
+
+        const progress = progressEvents(recorder);
+        expect(progress).toHaveLength(1);
+        expect(recorder.events.filter((event) => event.type === 'update')).toHaveLength(0);
+        const clears = clearEvents(recorder);
+        expect(clears).toHaveLength(1);
+        expect(clears[0].event).toEqual({ kind: 'batch-memory-failed' });
+        expect(metadata.summaryception.layers[0]).toEqual([]);
+        expect(metadata.summaryception.mutationEpoch).toBe(0);
+    });
 
     it('reports blocked and leaves the progress open until the queued commit flushes', async () => {
         const recorder = makeNotifyRecorder();
