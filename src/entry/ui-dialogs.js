@@ -166,7 +166,7 @@ export function manualRunView(strategy) {
  * @param {import('../core/summarizer-engine.js').ManualRunProgress} progress
  * @param {ManualRunView} view - Display policy of the running strategy.
  * @param {() => void} onCancel - Cancels the run from the toast's close button.
- * @returns {void}
+ * @returns {unknown} The toast element, for later updates and clearing.
  */
 export function createManualProgressToast(progress, view, onCancel) {
     let cancelled = false;
@@ -177,7 +177,7 @@ export function createManualProgressToast(progress, view, onCancel) {
         cancelled = true;
         onCancel();
     };
-    toastr.info(getProgressMarkup(progress, view.label), view.title, {
+    return toastr.info(getProgressMarkup(progress, view.label), view.title, {
         timeOut: 0,
         extendedTimeOut: 0,
         tapToDismiss: false,

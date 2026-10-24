@@ -405,6 +405,62 @@ async function commitSnippetEdit(textarea, position) {
     return result;
 }
 
+/**
+ * Blocking confirm dialog for destructive snippet actions. Resolves true
+ * only when the user explicitly confirms; cancel or backdrop Escape closes.
+ * @param {{ title: string, message: string, confirmLabel: string }} options
+ * @returns {Promise<boolean>}
+ */
+function confirmSnippetAction({ title, message, confirmLabel }) {
+    $('.sc-snippet-confirm-overlay').remove();
+
+    return new Promise((resolve) => {
+        const overlay = $('<div class="sc-snippet-confirm-overlay"></div>');
+        const panel = $(
+            '<div class="sc-snippet-confirm-panel" role="alertdialog" aria-modal="true"></div>',
+        );
+        const heading = $(`<h3 class="sc-snippet-editor-title"></h3>`).text(title);
+        const body = $('<p class="sc-snippet-confirm-message"></p>').text(message);
+        const actions = $('<div class="sc-snippet-editor-actions"></div>');
+        const cancel = $(
+            '<button type="button" class="menu_button sc-snippet-confirm-cancel"><i class="fa-solid fa-xmark"></i><span>Cancel</span></button>',
+        );
+        const confirm = $(
+            `<button type="button" class="menu_button sc-snippet-confirm-accept"><i class="fa-solid fa-check"></i><span></span></button>`,
+        );
+        confirm.children('span').text(confirmLabel);
+
+        let settled = false;
+        const close = (answer) => {
+            if (settled) {
+                return;
+            }
+            settled = true;
+            overlay.remove();
+            resolve(answer);
+        };
+
+        cancel.on('click', (event) => {
+            event.preventDefault();
+            event.stopPropagation();
+            close(false);
+        });
+        confirm.on('click', (event) => {
+            event.preventDefault();
+            event.stopPropagation();
+            close(true);
+        });
+        overlay.on('pointerdown click', (event) => {
+            event.stopPropagation();
+        });
+
+        actions.append(cancel, confirm);
+        panel.append(heading, body, actions);
+        overlay.append(panel).appendTo('body');
+        cancel.trigger('focus');
+    });
+}
+
 async function onSnippetRedoClick() {
     const position = getSnippetPosition($(this));
     if (!position) {
@@ -420,7 +476,12 @@ async function onSnippetRedoClick() {
         handleRegenerationTargetStatus(target);
         return;
     }
-    if (!confirm(`Regenerate summary for turns ${target.range[0]}-${target.range[1]}?`)) {
+    const confirmed = await confirmSnippetAction({
+        title: 'Regenerate this snippet?',
+        message: `This replaces the summary for turns ${target.range[0]}-${target.range[1]} with a fresh LLM call. If the call fails or is blocked, the original snippet is kept.`,
+        confirmLabel: 'Regenerate',
+    });
+    if (!confirmed) {
         return;
     }
 
@@ -438,6 +499,18 @@ async function onSnippetRedoClick() {
 async function onSnippetDeleteClick() {
     const position = getSnippetPosition($(this));
     if (!position) {
+        return;
+    }
+
+    const isLayer0 = position.layerIdx === 0;
+    const confirmed = await confirmSnippetAction({
+        title: `Delete this Layer ${position.layerIdx} snippet?`,
+        message: isLayer0
+            ? 'This permanently removes the summary. Those turns stay raw and will be re-summarized on the next run — this cannot be undone.'
+            : 'This permanently removes the meta-summary. There is no regenerate path for promoted snippets: the era it covered is lost from memory unless you wipe the underlying Layer 0 snippets and rebuild. This cannot be undone.',
+        confirmLabel: 'Delete',
+    });
+    if (!confirmed) {
         return;
     }
 
