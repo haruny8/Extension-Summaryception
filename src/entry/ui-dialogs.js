@@ -386,6 +386,20 @@ const NOTIFY_TRANSIENT_VIEWS = {
             TOAST_TITLE,
             { timeOut: 3000, progressBar: true },
         ),
+    [NOTIFY_EVENTS.PROMOTION_COMPLETED]: (event) =>
+        toastr.success(
+            `Promoted ${event.mergedCount} memories: Layer ${event.fromLayer} -> ` +
+                `Layer ${event.toLayer}.`,
+            TOAST_TITLE,
+            { timeOut: 3000 },
+        ),
+    [NOTIFY_EVENTS.PROMOTION_FAILED]: (event) =>
+        toastr.warning(
+            `Promotion of ${event.mergedCount} memories to Layer ${event.toLayer} ` +
+                'was rejected; will retry on next trigger.',
+            TOAST_TITLE,
+            { timeOut: 5000 },
+        ),
 };
 
 /**

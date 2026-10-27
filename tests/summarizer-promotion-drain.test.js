@@ -132,7 +132,7 @@ describe('drainPromotionOverflow', () => {
         expect(dispatch).toHaveBeenCalledTimes(1);
     });
 
-    it('emits one structured promotion-started event and never calls toastr', async () => {
+    it('emits structured promotion-started and promotion-failed events and never calls toastr', async () => {
         const { toastr } = installBrowserRuntimeStub();
         const recorder = makeNotifyRecorder();
         installOverflowingStore();
@@ -150,6 +150,13 @@ describe('drainPromotionOverflow', () => {
             {
                 type: 'transient',
                 kind: NOTIFY_EVENTS.PROMOTION_STARTED,
+                mergedCount: 3,
+                fromLayer: 0,
+                toLayer: 1,
+            },
+            {
+                type: 'transient',
+                kind: NOTIFY_EVENTS.PROMOTION_FAILED,
                 mergedCount: 3,
                 fromLayer: 0,
                 toLayer: 1,

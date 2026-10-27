@@ -1,6 +1,7 @@
 import { getContext } from '../foundation/context.js';
 import { getChatStore } from '../foundation/chat-store.js';
 import { getEffectiveSettings } from '../foundation/settings.js';
+import { NOTIFY_EVENTS } from '../foundation/constants.js';
 import { debug } from '../foundation/logger.js';
 import { buildFullContext } from './chatutils.js';
 import { generateValidatedPromotion } from './promotion-candidate.js';
@@ -276,9 +277,21 @@ export async function drainPromotionOverflow({
             return { status: 'blocked', attempts };
         }
         if (promoted) {
+            notify?.transient({
+                kind: NOTIFY_EVENTS.PROMOTION_COMPLETED,
+                mergedCount: plan.mergeCount,
+                fromLayer: plan.candidate.layerIndex,
+                toLayer: plan.candidate.layerIndex + 1,
+            });
             failures = 0;
             continue;
         }
+        notify?.transient({
+            kind: NOTIFY_EVENTS.PROMOTION_FAILED,
+            mergedCount: plan.mergeCount,
+            fromLayer: plan.candidate.layerIndex,
+            toLayer: plan.candidate.layerIndex + 1,
+        });
         failures++;
         if (failures >= maxConsecutiveFailures) {
             return { status: 'failed', attempts };
