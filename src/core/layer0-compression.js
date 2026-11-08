@@ -77,7 +77,7 @@ export function appendLayer0PromptConstraints(prompt, settings, profile) {
     }
 
     if (profile.policy.promotionConstraints) {
-        return appendPromotionPromptConstraints(prompt, settings, profile.provenance);
+        return appendPromotionPromptConstraints(prompt, settings);
     }
 
     if (!profile.policy.narrativeEnvelope) {
@@ -95,27 +95,12 @@ export function appendLayer0PromptConstraints(prompt, settings, profile) {
     return insertBeforeTrigger(prompt, insert, EXECUTION_TRIGGER_L0);
 }
 
-/**
- * @param {string} prompt
- * @param {Partial<ExtensionSettings>} settings
- * @param {import('./call-profile.js').SummarizerCallMetadata} metadata
- * @returns {string}
- */
-function appendPromotionPromptConstraints(prompt, settings, metadata = {}) {
+function appendPromotionPromptConstraints(prompt, settings) {
     const targetTokens = getLayer0SummaryTokenTarget(settings);
-    const layerIndex = Number(metadata.layerIndex);
-    const depthGuidance =
-        layerIndex >= 1
-            ? 'For this deep-layer fold, merge whole scenes into outcome-level prose and do not replay beats. '
-            : '';
     const budgetBody = String(settings.promotionSourceBudgetPrompt ?? '').replaceAll(
         '{{target_tokens}}',
         String(targetTokens),
     );
-    const block = [
-        '<promotion_guidance>',
-        `${depthGuidance}${budgetBody}`,
-        '</promotion_guidance>',
-    ].join('\n');
+    const block = ['<promotion_guidance>', budgetBody, '</promotion_guidance>'].join('\n');
     return insertBeforeTrigger(prompt, block, EXECUTION_TRIGGER_PROMO);
 }

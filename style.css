@@ -854,9 +854,15 @@ label.sc-toggle-row input[type='radio'] {
 }
 .sc-snippet-editor-title {
     flex: 0 0 auto;
-    margin: 0 0 12px;
+    margin: 0 0 4px;
     color: var(--SmartThemeQuoteColor, #66b2ff);
     font-size: 1.05em;
+}
+.sc-snippet-editor-meta {
+    flex: 0 0 auto;
+    margin: 0 0 12px;
+    opacity: 0.58;
+    font-size: 0.84em;
 }
 .sc-snippet-editor-textarea {
     min-height: 0;

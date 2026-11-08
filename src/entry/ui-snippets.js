@@ -316,7 +316,8 @@ function onSnippetTextClick() {
         return;
     }
 
-    startSnippetEdit(position, snippetText.text);
+    const snippet = getChatStore().layers[position.layerIdx]?.[position.snippetIdx];
+    startSnippetEdit(position, snippetText.text, getSnippetMeta(snippet || {}));
 }
 
 function getSnippetPosition(element) {
@@ -330,12 +331,13 @@ function getSnippetPosition(element) {
     return { layerIdx, snippetIdx };
 }
 
-function startSnippetEdit(position, initialText) {
+function startSnippetEdit(position, initialText, snippetMeta) {
     $('.sc-snippet-editor-overlay').remove();
 
     const overlay = $('<div class="sc-snippet-editor-overlay"></div>');
     const panel = $('<div class="sc-snippet-editor-panel" role="dialog" aria-modal="true"></div>');
     const heading = $('<h3 class="sc-snippet-editor-title">Edit snippet</h3>');
+    const meta = $('<div class="sc-snippet-editor-meta"></div>').text(snippetMeta);
     const textarea = $('<textarea class="sc-snippet-editor-textarea"></textarea>').val(initialText);
     const actions = $('<div class="sc-snippet-editor-actions"></div>');
     const cancel = $(
@@ -380,7 +382,11 @@ function startSnippetEdit(position, initialText) {
     });
 
     actions.append(cancel, save);
-    panel.append(heading, textarea, actions);
+    panel.append(heading);
+    if (snippetMeta) {
+        panel.append(meta);
+    }
+    panel.append(textarea, actions);
     overlay.append(panel).appendTo('body');
     textarea.focus().select();
 }
