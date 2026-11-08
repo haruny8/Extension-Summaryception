@@ -183,6 +183,31 @@ describe('buildMemoryBody', () => {
 
         expect(buildMemoryBody(layers)).toBe(buildMemoryInjectionParts(layers).memoryText);
     });
+
+    it('keeps only the newest maxSnippetsPerLayer snippets across all layers, in chronological order', () => {
+        const layer0 = Array.from({ length: 6 }, (_, i) => ({ text: `L0-${i}` }));
+        const layer1 = [{ text: 'L1-0' }, { text: 'L1-1' }];
+
+        const body = buildMemoryBody([layer0, layer1], { maxSnippetsPerLayer: 7 });
+
+        expect(body).toContain('L1-1');
+        expect(body).not.toContain('L1-0');
+        expect(body).toContain('L0-0');
+        expect(body.indexOf('L1-1')).toBeLessThan(body.indexOf('L0-5'));
+    });
+
+    it('keeps every snippet when maxSnippetsPerLayer is undefined', () => {
+        const layer = Array.from({ length: 4 }, (_, i) => ({ text: `snippet-${i}` }));
+
+        const body = buildMemoryBody([layer]);
+
+        expect(body).toContain('snippet-0');
+        expect(body).toContain('snippet-3');
+    });
+
+    it('emits nothing when maxSnippetsPerLayer is 0', () => {
+        expect(buildMemoryBody([[{ text: 'hidden' }]], { maxSnippetsPerLayer: 0 })).toBe('');
+    });
 });
 
 describe('renderInjectionTemplate', () => {

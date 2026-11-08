@@ -168,6 +168,8 @@ export function makeSummarySettings(overrides = {}) {
         memoryTokenBudget: 10000,
         snippetsPerLayer: 24,
         snippetsPerPromotion: 3,
+        layer0ContextSnippets: 2,
+        promotionContextSnippets: 2,
         ...overrides,
     };
 }

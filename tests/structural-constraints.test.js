@@ -5,8 +5,8 @@ import { buildLayer0BudgetHint, getSourceTokenCount } from '../src/core/token-bu
 describe('buildLayer0BudgetHint', () => {
     it('wraps the advisory source guidance', () => {
         const result = buildLayer0BudgetHint({ targetTokens: 250 });
-        expect(result).toContain('<summaryception_source_budget>');
-        expect(result).toContain('</summaryception_source_budget>');
+        expect(result).toContain('<source_budget>');
+        expect(result).toContain('</source_budget>');
         expect(result).toContain('roughly 250 tokens');
         expect(result).not.toContain('[STATE]');
     });

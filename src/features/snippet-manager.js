@@ -1,7 +1,9 @@
 import { getChat } from '../foundation/context.js';
 import { resolveScIdsToIndices } from '../foundation/message-identity.js';
 import { getChatStore } from '../foundation/chat-store.js';
+import { getEffectiveSettings } from '../foundation/settings.js';
 import { buildPassageFromRangeWithStats } from '../core/chatutils.js';
+import { buildMemoryBody } from '../core/memory-injection.js';
 import { buildPassageNameCensus } from '../core/refusal-guard.js';
 import { commitSnippetMutation } from '../core/snippet-commit.js';
 import { buildSnippetMetadataFromText } from '../core/snippet-metadata.js';
@@ -246,34 +248,14 @@ function getSnippetAt(store, layerIndex, snippetIndex) {
 }
 
 function buildSnippetContext(store, excludeLayerIndex, excludeSnippetIndex) {
-    const contextParts = [];
-    for (let i = store.layers.length - 1; i >= 0; i--) {
-        const layer = store.layers[i];
-        if (!layer) {
-            continue;
-        }
-        collectLayerContext({
-            contextParts,
-            layer,
-            layerIndex: i,
-            excludeLayerIndex,
-            excludeSnippetIndex,
-        });
-    }
-    return contextParts.length > 0 ? contextParts.join(' ') : '(none yet)';
-}
-
-function collectLayerContext({
-    contextParts,
-    layer,
-    layerIndex,
-    excludeLayerIndex,
-    excludeSnippetIndex,
-}) {
-    for (let i = 0; i < layer.length; i++) {
-        if (layerIndex === excludeLayerIndex && i === excludeSnippetIndex) {
-            continue;
-        }
-        contextParts.push(layer[i].text);
-    }
+    const layers = store.layers.map((layer, i) =>
+        layer
+            ? layer.filter((_, j) => !(i === excludeLayerIndex && j === excludeSnippetIndex))
+            : [],
+    );
+    return (
+        buildMemoryBody(layers, {
+            maxSnippetsPerLayer: getEffectiveSettings().layer0ContextSnippets,
+        }) || '(none yet)'
+    );
 }

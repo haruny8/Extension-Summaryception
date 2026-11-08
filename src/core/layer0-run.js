@@ -2,6 +2,7 @@ import { BATCH_PROGRESS } from '../foundation/constants.js';
 import { getContext, getChat } from '../foundation/context.js';
 import { ensureChatScIds } from '../foundation/message-identity.js';
 import { getChatStore } from '../foundation/chat-store.js';
+import { getEffectiveSettings } from '../foundation/settings.js';
 import { getCurrentSummarizedBoundary } from './snippet-provenance.js';
 import { debug, error, info, isTraceEnabled, serializeError, trace } from '../foundation/logger.js';
 import { repairGhostingForRange } from './ghosting.js';
@@ -67,6 +68,7 @@ async function runPassages({ routePlan, notify, signal, progress, gate, dispatch
     }
     const store = getChatStore();
     ensureLayer0(store);
+    const layer0ContextSnippets = getEffectiveSettings().layer0ContextSnippets;
 
     const boundary = getCurrentSummarizedBoundary(chat, store);
     const turns = Array.isArray(routePlan?.batchTurns) ? routePlan.batchTurns : [];
@@ -82,7 +84,7 @@ async function runPassages({ routePlan, notify, signal, progress, gate, dispatch
         info(`Summarizing ${batch.length} assistant turns (indices ${startIdx}–${endIdx})`);
     }
 
-    let contextText = buildFullContext(0);
+    let contextText = buildFullContext(0, layer0ContextSnippets);
     const snapshots = [];
     const entries = [];
 
@@ -122,6 +124,7 @@ async function runPassages({ routePlan, notify, signal, progress, gate, dispatch
         contextText = buildPendingLayer0Context(
             store.layers,
             entries.map((entry) => entry.snippet),
+            layer0ContextSnippets,
         );
         progress.update(snapshots.length);
     }
@@ -447,7 +450,8 @@ async function captureLayer0Snapshot({ chat, store, passageStart, endIdx, contex
         throw new Error('Cannot summarize messages without stable Summaryception IDs.');
     }
     const passage = await buildPassageFromRangeWithStats(chat, passageStart, endIdx);
-    const resolvedContextText = contextText ?? buildFullContext(0);
+    const resolvedContextText =
+        contextText ?? buildFullContext(0, getEffectiveSettings().layer0ContextSnippets);
 
     return {
         ...buildSnapshotBasis({ chatRef: chat, store, ctx }),
@@ -510,7 +514,7 @@ function buildLayer0Snippet(snapshot, summary) {
     };
 }
 
-function buildPendingLayer0Context(layers, pendingSnippets) {
+function buildPendingLayer0Context(layers, pendingSnippets, maxSnippetsPerLayer) {
     const workingLayers = Array.isArray(layers)
         ? layers.map((layer) => (Array.isArray(layer) ? [...layer] : []))
         : [];
@@ -518,7 +522,7 @@ function buildPendingLayer0Context(layers, pendingSnippets) {
         workingLayers[0] = [];
     }
     workingLayers[0].push(...pendingSnippets);
-    return buildMemoryBody(workingLayers) || '(none yet)';
+    return buildMemoryBody(workingLayers, { maxSnippetsPerLayer }) || '(none yet)';
 }
 
 /**

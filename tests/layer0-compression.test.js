@@ -74,7 +74,7 @@ describe('appendLayer0PromptConstraints', () => {
             settings,
             resolveCallProfile(settings, { kind: 'layer0' }),
         );
-        expect(result).toContain('<summaryception_source_budget>');
+        expect(result).toContain('<source_budget>');
         expect(result).toContain('<narrative>');
         expect(result).not.toContain('[STATE]');
         expect(result.trimEnd().endsWith(EXECUTION_TRIGGER_L0)).toBe(true);

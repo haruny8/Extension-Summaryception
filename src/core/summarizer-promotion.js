@@ -117,7 +117,7 @@ async function prepareLayerPromotion({
         .join('\n\n');
     const sourceNarrativeText = storyTxt;
     const memoryTokensBefore = await countTextTokens(storyTxt);
-    const contextStr = buildFullContext(layerIndex + 1);
+    const contextStr = buildFullContext(layerIndex + 1, settings.promotionContextSnippets);
     const promotedMetadata = buildPromotedSnippetMetadata(toMerge);
     const snapshot = {
         ...capturePromotionSnapshot(layerIndex),

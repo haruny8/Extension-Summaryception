@@ -358,13 +358,17 @@ function buildPassageResult(accumulator) {
  * captured history and can avoid repeating it.
  *
  * @param {number} downToLayer - Include this layer and all layers above it
+ * @param {number} maxSnippetsPerLayer - Keep only each layer's newest N snippets
  * @returns {string} - Combined context string, or '(none yet)'
  */
-export function buildFullContext(downToLayer = 0) {
+export function buildFullContext(downToLayer, maxSnippetsPerLayer) {
     const store = getChatStore();
     // Summarizer context is the raw memory body, never template-wrapped.
     // '(none yet)' stands in when empty.
-    return buildMemoryBody(getLayersAtOrAbove(store.layers, downToLayer)) || '(none yet)';
+    return (
+        buildMemoryBody(getLayersAtOrAbove(store.layers, downToLayer), { maxSnippetsPerLayer }) ||
+        '(none yet)'
+    );
 }
 
 function getLayersAtOrAbove(layers, downToLayer) {

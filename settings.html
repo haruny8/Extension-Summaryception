@@ -767,16 +767,7 @@
                                             <input id="sc_layer0_summary_token_target_val" class="text_pole sc-val" type="text" inputmode="numeric" value="280" data-sc-slider-setting="layer0SummaryTokenTarget" data-sc-partner-input="#sc_layer0_summary_token_target" />
                                         </div>
                                     </div>
-                                    <div class="sc-row">
-                                        <label for="sc_layer0_source_budget_prompt">
-                                            <span>Layer 0 Source Budget Prompt</span>
-                                            <small class="sc-hint">Editable guidance sent inside the source-budget block. Use <code>{{sentence_cap}}</code> for the suggested sentence count or <code>{{target_tokens}}</code> for the target size.</small>
-                                        </label>
-                                        <textarea id="sc_layer0_source_budget_prompt" class="text_pole sc-textarea" rows="4" data-sc-setting="layer0SourceBudgetPrompt" data-sc-type="string"></textarea>
-                                    </div>
                                 </div>
-                            </div>
-                            <div class="sc-tuning-column">
                                 <div class="sc-tuning-group">
                                     <div class="sc-tuning-title">
                                         <span class="fa-solid fa-timeline"></span>
@@ -803,6 +794,8 @@
                                         </div>
                                     </div>
                                 </div>
+                            </div>
+                            <div class="sc-tuning-column">
                                 <div class="sc-tuning-group">
                                     <div class="sc-tuning-title">
                                         <span class="fa-solid fa-clock-rotate-left"></span>
@@ -842,6 +835,58 @@
                                             <input type="range" id="sc_snippets_per_promotion" min="3" max="4" step="1" data-sc-slider-setting="snippetsPerPromotion" data-sc-partner-input="#sc_snippets_per_promotion_val" />
                                             <input id="sc_snippets_per_promotion_val" class="text_pole sc-val" type="text" inputmode="numeric" value="3" data-sc-slider-setting="snippetsPerPromotion" data-sc-partner-input="#sc_snippets_per_promotion" />
                                         </div>
+                                    </div>
+                                    <div class="sc-row">
+                                        <label for="sc_layer0_context_snippets">
+                                            <span>Layer 0 Context Memories</span>
+                                            <small class="sc-hint">How many of the newest Layer 0 summaries are sent as context when summarizing new messages. Older ones are not sent.</small>
+                                        </label>
+                                        <div class="sc-slider-row">
+                                            <input type="range" id="sc_layer0_context_snippets" min="0" max="10" step="1" data-sc-slider-setting="layer0ContextSnippets" data-sc-partner-input="#sc_layer0_context_snippets_val" />
+                                            <input id="sc_layer0_context_snippets_val" class="text_pole sc-val" type="text" inputmode="numeric" value="2" data-sc-slider-setting="layer0ContextSnippets" data-sc-partner-input="#sc_layer0_context_snippets" />
+                                        </div>
+                                    </div>
+                                    <div class="sc-row">
+                                        <label for="sc_promotion_context_snippets">
+                                            <span>Layer 1+ Context Memories</span>
+                                            <small class="sc-hint">How many of the newest summaries in each layer are sent as context when merging into deeper memory. Older ones are not sent.</small>
+                                        </label>
+                                        <div class="sc-slider-row">
+                                            <input type="range" id="sc_promotion_context_snippets" min="0" max="10" step="1" data-sc-slider-setting="promotionContextSnippets" data-sc-partner-input="#sc_promotion_context_snippets_val" />
+                                            <input id="sc_promotion_context_snippets_val" class="text_pole sc-val" type="text" inputmode="numeric" value="2" data-sc-slider-setting="promotionContextSnippets" data-sc-partner-input="#sc_promotion_context_snippets" />
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="sc-source-budget-prompts">
+                        <div class="sc-section-header">
+                            <h4 class="sc-section-title">
+                                <span class="fa-solid fa-scissors"></span>
+                                Source Budget Prompts
+                            </h4>
+                        </div>
+                        <div class="sc-tuning-grid">
+                            <div class="sc-tuning-column">
+                                <div class="sc-tuning-group">
+                                    <div class="sc-row">
+                                        <label for="sc_layer0_source_budget_prompt">
+                                            <span>Layer 0 Source Budget Prompt</span>
+                                            <small class="sc-hint">Editable guidance sent inside the source-budget block. Use <code>{{sentence_cap}}</code> for the suggested sentence count or <code>{{target_tokens}}</code> for the target size.</small>
+                                        </label>
+                                        <textarea id="sc_layer0_source_budget_prompt" class="text_pole sc-textarea" rows="4" data-sc-setting="layer0SourceBudgetPrompt" data-sc-type="string"></textarea>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="sc-tuning-column">
+                                <div class="sc-tuning-group">
+                                    <div class="sc-row">
+                                        <label for="sc_promotion_source_budget_prompt">
+                                            <span>Layer 1+ Source Budget Prompt</span>
+                                            <small class="sc-hint">Editable guidance sent inside the promotion guidance block for deeper layers. Use <code>{{target_tokens}}</code> for the target size.</small>
+                                        </label>
+                                        <textarea id="sc_promotion_source_budget_prompt" class="text_pole sc-textarea" rows="4" data-sc-setting="promotionSourceBudgetPrompt" data-sc-type="string"></textarea>
                                     </div>
                                 </div>
                             </div>

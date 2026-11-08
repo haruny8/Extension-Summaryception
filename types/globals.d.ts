@@ -63,6 +63,8 @@ interface ExtensionSettings {
     minSummaryTurns: number;
     maxSummaryTurns: number;
     layer0SummaryTokenTarget: number;
+    layer0ContextSnippets: number;
+    promotionContextSnippets: number;
     maxL0SourceTokens: number;
     advancedModelContext: number;
     minSummaryBudget: number;
@@ -73,6 +75,7 @@ interface ExtensionSettings {
     snippetsPerPromotion: number;
     injectionTemplate: string;
     layer0SourceBudgetPrompt: string;
+    promotionSourceBudgetPrompt: string;
     summarizerSystemPromptPreset: string;
     summarizerSystemPrompt: string;
     summarizerUserPrompt: string;

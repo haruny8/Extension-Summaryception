@@ -333,9 +333,22 @@ const HELP_ENTRIES = [
             short: 'Customize the compression instruction sent with each Layer 0 request.',
             controls: [controlFor('sc_layer0_source_budget_prompt')],
             controlsText:
-                'Sets the text inside the <summaryception_source_budget> block. Use {{sentence_cap}} for the calculated sentence limit and {{target_tokens}} for the Narrative Target Size value.',
+                'Sets the text inside the <source_budget> block. Use {{sentence_cap}} for the calculated sentence limit and {{target_tokens}} for the Narrative Target Size value.',
             when: 'Edit it when the default compression instruction is too strict or too vague for your summarizer.',
             risk: 'This changes the model-facing instruction, while the separate output-size validator still enforces the configured Narrative Target Size.',
+        }),
+    ],
+    [
+        'promotion_source_budget_prompt',
+        basicHelp({
+            selector: selectorFor('sc_promotion_source_budget_prompt'),
+            title: 'Layer 1+ Source Budget Prompt',
+            short: 'Customize the guidance sent with each deeper-layer merge request.',
+            controls: [controlFor('sc_promotion_source_budget_prompt')],
+            controlsText:
+                'Sets the text inside the <promotion_guidance> block. Use {{target_tokens}} for the Narrative Target Size value.',
+            when: 'Edit it when deeper-layer summaries keep too much detail or drop durable continuity.',
+            risk: 'This changes the model-facing instruction for promotions, while the output-size validator still enforces the configured Narrative Target Size.',
         }),
     ],
     [
@@ -426,6 +439,40 @@ const HELP_ENTRIES = [
             higher: 'keeps more separate memories in each layer.',
             lower: 'merges memories down into deeper layers sooner.',
             defaultText: '24.',
+        }),
+    ],
+    [
+        'layer0_context_snippets',
+        sliderHelp({
+            selector: selectorFor('sc_layer0_context_snippets'),
+            title: 'Layer 0 Context Memories',
+            short: 'Newest Layer 0 summaries sent as context.',
+            controls: [
+                controlFor('sc_layer0_context_snippets'),
+                controlFor('sc_layer0_context_snippets_val'),
+            ],
+            meaning:
+                'How many of the newest Layer 0 summaries are sent as context when summarizing new messages. Older summaries are not sent.',
+            higher: 'gives the summarizer more recent continuity.',
+            lower: 'sends less context and keeps prompts smaller.',
+            defaultText: '2.',
+        }),
+    ],
+    [
+        'promotion_context_snippets',
+        sliderHelp({
+            selector: selectorFor('sc_promotion_context_snippets'),
+            title: 'Layer 1+ Context Memories',
+            short: 'Newest summaries sent as context when merging.',
+            controls: [
+                controlFor('sc_promotion_context_snippets'),
+                controlFor('sc_promotion_context_snippets_val'),
+            ],
+            meaning:
+                'How many of the newest summaries across all layers are sent as context when merging into deeper memory. Older summaries are not sent.',
+            higher: 'gives merges more recent context.',
+            lower: 'sends less context and keeps merge prompts smaller.',
+            defaultText: '2.',
         }),
     ],
     [

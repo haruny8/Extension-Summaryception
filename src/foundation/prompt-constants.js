@@ -60,6 +60,11 @@ export const DEFAULT_INJECTION_TEMPLATE =
 export const DEFAULT_LAYER0_SOURCE_BUDGET_PROMPT =
     'Compress the source passage hard. Aim for roughly {{target_tokens}} tokens when practical; use more or less space to preserve durable continuity.';
 
+export const DEFAULT_PROMOTION_SOURCE_BUDGET_PROMPT = [
+    'Aim for roughly {{target_tokens}} tokens when the source supports it, but prioritize complete durable chronology over an exact length.',
+    'Keep only macro-level plot outcomes, lasting relationship or state changes, permanent rules, and unresolved hooks.',
+].join('\n');
+
 /**
  * Sample wrapper that repeats the memory block for stronger recall. Models
  * attend most to the start and end of the prompt, so a second copy near the

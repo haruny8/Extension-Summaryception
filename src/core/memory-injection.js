@@ -42,10 +42,11 @@ import { countTextTokens } from './token-count.js';
  * The bare memory body handed to the summarizer as context: full anchors,
  * per-layer sections, never template-wrapped.
  * @param {Array<Array<{ text: string }>>} layers
+ * @param {{ maxSnippetsPerLayer?: number }} [options]
  * @returns {string}
  */
-export function buildMemoryBody(layers) {
-    return buildMemoryInjectionParts(layers).memoryText;
+export function buildMemoryBody(layers, options) {
+    return buildMemoryInjectionParts(layers, options).memoryText;
 }
 
 /**
@@ -113,15 +114,18 @@ export async function measureInjection(injection) {
 
 /**
  * @param {Array<Array<{ text: string }>>} layers
- * @param {{ compactAnchors?: boolean }} [options]
+ * @param {{ compactAnchors?: boolean, maxSnippetsPerLayer?: number }} [options] - maxSnippetsPerLayer keeps only the newest N snippets across all layers.
  * @returns {MemoryInjectionParts}
  */
-export function buildMemoryInjectionParts(layers, { compactAnchors = false } = {}) {
+export function buildMemoryInjectionParts(
+    layers,
+    { compactAnchors = false, maxSnippetsPerLayer } = {},
+) {
     if (!Array.isArray(layers)) {
         return emptyParts();
     }
 
-    const chronologyParts = collectChronologyParts(layers, compactAnchors);
+    const chronologyParts = collectChronologyParts(layers, compactAnchors, maxSnippetsPerLayer);
     const chronologyText = chronologyParts.map((part) => part.text).join('\n\n');
     const memoryText = chronologyText ? `[CHRONOLOGY]\n${chronologyText}` : '';
 
@@ -143,14 +147,17 @@ export function renderInjectionTemplate(injectionParts, settings, { emptyFallbac
     );
 }
 
-function collectChronologyParts(layers, compactAnchors) {
+function collectChronologyParts(layers, compactAnchors, maxSnippets) {
     const parts = [];
-    for (let i = layers.length - 1; i >= 0; i--) {
+    let budget = Number.isInteger(maxSnippets) ? maxSnippets : Infinity;
+    for (let i = 0; i < layers.length && budget > 0; i++) {
         const layer = layers[i];
         if (!Array.isArray(layer) || layer.length === 0) {
             continue;
         }
-        const text = layer
+        const kept = layer.slice(Math.max(0, layer.length - budget));
+        budget -= kept.length;
+        const text = kept
             .map((snippet) =>
                 formatAnchoredSnippetNarrative(
                     snippet,
@@ -163,7 +170,7 @@ function collectChronologyParts(layers, compactAnchors) {
             parts.push({ layerIndex: i, text });
         }
     }
-    return parts;
+    return parts.reverse();
 }
 
 /**

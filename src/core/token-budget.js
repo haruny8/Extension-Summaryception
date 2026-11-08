@@ -32,7 +32,7 @@ export function buildLayer0BudgetHint({
     const body = String(template ?? '')
         .replaceAll('{{sentence_cap}}', String(sentenceCap))
         .replaceAll('{{target_tokens}}', String(resolvedTarget));
-    return ['<summaryception_source_budget>', body, '</summaryception_source_budget>'].join('\n');
+    return ['<source_budget>', body, '</source_budget>'].join('\n');
 }
 
 /**

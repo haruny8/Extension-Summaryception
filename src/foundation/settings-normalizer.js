@@ -178,6 +178,16 @@ function normalizeVerbatimWindowSettings(settings) {
         SLIDER_LIMITS.snippetsPerPromotion.MIN,
         SLIDER_LIMITS.snippetsPerPromotion.MAX,
     );
+    settings.layer0ContextSnippets = clampInteger(
+        settings.layer0ContextSnippets,
+        SLIDER_LIMITS.layer0ContextSnippets.MIN,
+        SLIDER_LIMITS.layer0ContextSnippets.MAX,
+    );
+    settings.promotionContextSnippets = clampInteger(
+        settings.promotionContextSnippets,
+        SLIDER_LIMITS.promotionContextSnippets.MIN,
+        SLIDER_LIMITS.promotionContextSnippets.MAX,
+    );
     settings.cacheTtlMinutes = clampToStep(
         settings.cacheTtlMinutes,
         SLIDER_LIMITS.cacheTtlMinutes.MIN,

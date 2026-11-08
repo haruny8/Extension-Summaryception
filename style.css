@@ -491,12 +491,14 @@ label.sc-mode-card input[type='radio'] {
     color: var(--sc-accent);
 }
 .sc-expert-tuning,
+.sc-source-budget-prompts,
 .sc-connection-group {
     margin-top: 7px;
     border-top: 1px solid var(--sc-border);
     padding-top: 7px;
 }
-.sc-expert-tuning .sc-tuning-grid {
+.sc-expert-tuning .sc-tuning-grid,
+.sc-source-budget-prompts .sc-tuning-grid {
     margin-top: 7px;
 }
 .sc-placement-panel {
@@ -678,7 +680,8 @@ label.sc-toggle-row input[type='radio'] {
     height: 15px !important;
 }
 
-#sc_layer0_source_budget_prompt.sc-textarea {
+#sc_layer0_source_budget_prompt.sc-textarea,
+#sc_promotion_source_budget_prompt.sc-textarea {
     height: 107px !important;
 }
 

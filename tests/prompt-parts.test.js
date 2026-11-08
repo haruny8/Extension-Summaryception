@@ -102,11 +102,11 @@ describe('insertBeforeTrigger', () => {
     });
 
     it('places an inserted block between the last content block and the trigger, preserving trigger finality', () => {
-        const inserted = '<summaryception_source_budget>\nX\n</summaryception_source_budget>';
+        const inserted = '<source_budget>\nX\n</source_budget>';
         const result = insertBeforeTrigger(basePrompt, inserted, EXECUTION_TRIGGER_PROMO);
 
-        const tagCount = (result.match(/<summaryception_source_budget>/g) || []).length;
-        const tagIdx = result.indexOf('<summaryception_source_budget>');
+        const tagCount = (result.match(/<source_budget>/g) || []).length;
+        const tagIdx = result.indexOf('<source_budget>');
         const triggerIdx = result.indexOf(EXECUTION_TRIGGER_PROMO);
         expect(tagCount).toBe(1);
         expect(tagIdx).toBeLessThan(triggerIdx);
@@ -123,7 +123,7 @@ describe('insertBeforeTrigger', () => {
 
     it('appends the insert at the end when the prompt does not end with the trigger (custom-template path)', () => {
         const custom = 'system preamble\n\nuser body';
-        const insert = '<summaryception_source_budget>\nZ\n</summaryception_source_budget>';
+        const insert = '<source_budget>\nZ\n</source_budget>';
         const result = insertBeforeTrigger(custom, insert, EXECUTION_TRIGGER_PROMO);
 
         expect(result.trimEnd().endsWith(insert.trim())).toBe(true);
@@ -131,7 +131,7 @@ describe('insertBeforeTrigger', () => {
     });
 
     it('does not throw on a null prompt and preserves the trimmed insert in the result', () => {
-        const insert = '<summaryception_source_budget>\nY\n</summaryception_source_budget>';
+        const insert = '<source_budget>\nY\n</source_budget>';
         const result = insertBeforeTrigger(null, insert, EXECUTION_TRIGGER_PROMO);
         // A null prompt coerces to ''. The empty body does not end with the
         // trigger, so the append fallback adds the insert.

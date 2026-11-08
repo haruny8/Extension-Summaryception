@@ -108,11 +108,14 @@ function appendPromotionPromptConstraints(prompt, settings, metadata = {}) {
         layerIndex >= 1
             ? 'For this deep-layer fold, merge whole scenes into outcome-level prose and do not replay beats. '
             : '';
+    const budgetBody = String(settings.promotionSourceBudgetPrompt ?? '').replaceAll(
+        '{{target_tokens}}',
+        String(targetTokens),
+    );
     const block = [
-        '<summaryception_promotion_guidance>',
-        `Aim for roughly ${targetTokens} tokens when the source supports it, but prioritize complete durable chronology over an exact length.`,
-        `${depthGuidance}Keep only macro-level plot outcomes, lasting relationship or state changes, permanent rules, and unresolved hooks.`,
-        '</summaryception_promotion_guidance>',
+        '<promotion_guidance>',
+        `${depthGuidance}${budgetBody}`,
+        '</promotion_guidance>',
     ].join('\n');
     return insertBeforeTrigger(prompt, block, EXECUTION_TRIGGER_PROMO);
 }
