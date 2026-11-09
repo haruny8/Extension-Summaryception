@@ -12,6 +12,7 @@ import {
 } from '../features/snippet-manager.js';
 import { showBusySummaryToast } from './ui-dialogs.js';
 import { ensureChild } from './ui-dom.js';
+import { attachTextSearch, buildSearchControls, readPlainText } from './ui-text-search.js';
 
 let notifyAdapter = null;
 /** @type {import('../core/foreground-gate.js').ForegroundGate | null} */
@@ -331,14 +332,65 @@ function getSnippetPosition(element) {
     return { layerIdx, snippetIdx };
 }
 
+let disposeSnippetEditorViewport = null;
+
+/**
+ * Pin the overlay to the visual viewport. The host root transform makes fixed overlays size against a zero-height box.
+ * @param {HTMLElement} overlay
+ * @returns {() => void}
+ */
+function trackVisualViewport(overlay) {
+    const viewport = window.visualViewport;
+    let frame = 0;
+    const apply = () => {
+        frame = 0;
+        const box = viewport ?? {
+            offsetLeft: 0,
+            offsetTop: 0,
+            width: window.innerWidth,
+            height: window.innerHeight,
+        };
+        overlay.style.inset = 'auto';
+        overlay.style.left = `${box.offsetLeft}px`;
+        overlay.style.top = `${box.offsetTop}px`;
+        overlay.style.width = `${box.width}px`;
+        overlay.style.height = `${box.height}px`;
+    };
+    const schedule = () => {
+        if (!frame) {
+            frame = requestAnimationFrame(apply);
+        }
+    };
+    apply();
+    window.addEventListener('resize', schedule);
+    viewport?.addEventListener('resize', schedule);
+    viewport?.addEventListener('scroll', schedule);
+    return () => {
+        window.removeEventListener('resize', schedule);
+        viewport?.removeEventListener('resize', schedule);
+        viewport?.removeEventListener('scroll', schedule);
+        cancelAnimationFrame(frame);
+    };
+}
+
 function startSnippetEdit(position, initialText, snippetMeta) {
+    disposeSnippetEditorViewport?.();
     $('.sc-snippet-editor-overlay').remove();
 
     const overlay = $('<div class="sc-snippet-editor-overlay"></div>');
     const panel = $('<div class="sc-snippet-editor-panel" role="dialog" aria-modal="true"></div>');
+    const header = $('<div class="sc-snippet-editor-header"></div>');
     const heading = $('<h3 class="sc-snippet-editor-title">Edit snippet</h3>');
     const meta = $('<div class="sc-snippet-editor-meta"></div>').text(snippetMeta);
-    const textarea = $('<textarea class="sc-snippet-editor-textarea"></textarea>').val(initialText);
+    const searchControls = buildSearchControls();
+    const editor = document.createElement('div');
+    editor.className = 'sc-snippet-editor-textarea';
+    editor.contentEditable = 'true';
+    editor.spellcheck = true;
+    editor.setAttribute('role', 'textbox');
+    editor.setAttribute('aria-multiline', 'true');
+    editor.setAttribute('aria-label', 'Snippet text');
+    editor.textContent = initialText;
     const actions = $('<div class="sc-snippet-editor-actions"></div>');
     const cancel = $(
         '<button type="button" class="menu_button sc-snippet-editor-cancel"><i class="fa-solid fa-xmark"></i><span>Cancel</span></button>',
@@ -348,7 +400,11 @@ function startSnippetEdit(position, initialText, snippetMeta) {
     );
     let saving = false;
 
-    const close = () => overlay.remove();
+    const close = () => {
+        disposeSnippetEditorViewport?.();
+        disposeSnippetEditorViewport = null;
+        overlay.remove();
+    };
     const saveDraft = async () => {
         if (saving) {
             return;
@@ -356,7 +412,7 @@ function startSnippetEdit(position, initialText, snippetMeta) {
         saving = true;
         save.prop('disabled', true);
         try {
-            const result = await commitSnippetEdit(textarea, position);
+            const result = await commitSnippetEdit(readPlainText(editor), position);
             if (result?.status !== 'empty') {
                 close();
                 updateSnippetBrowser();
@@ -382,26 +438,36 @@ function startSnippetEdit(position, initialText, snippetMeta) {
     });
 
     actions.append(cancel, save);
-    panel.append(heading);
+    header.append(heading, searchControls.toggle);
+    panel.append(header);
     if (snippetMeta) {
         panel.append(meta);
     }
-    panel.append(textarea, actions);
+    panel.append(searchControls.bar, editor, actions);
     overlay.append(panel).appendTo('body');
-    textarea.focus().select();
+    disposeSnippetEditorViewport = trackVisualViewport(overlay.get(0));
+    attachTextSearch({
+        ...searchControls,
+        root: editor,
+        shortcutTarget: panel.get(0),
+        editable: true,
+    });
+
+    // Caret only, no selection: the editor opens at the top with nothing highlighted.
+    editor.focus({ preventScroll: true });
+    const caret = document.createRange();
+    caret.setStart(editor, 0);
+    caret.collapse(true);
+    const selection = window.getSelection();
+    selection?.removeAllRanges();
+    selection?.addRange(caret);
+    editor.scrollTop = 0;
 }
 
-async function commitSnippetEdit(textarea, position) {
-    const result = await updateSnippetTextAt(
-        position.layerIdx,
-        position.snippetIdx,
-        textarea.val(),
-        {
-            gate: /** @type {import('../core/foreground-gate.js').ForegroundGate} */ (
-                foregroundGate
-            ),
-        },
-    );
+async function commitSnippetEdit(text, position) {
+    const result = await updateSnippetTextAt(position.layerIdx, position.snippetIdx, text, {
+        gate: /** @type {import('../core/foreground-gate.js').ForegroundGate} */ (foregroundGate),
+    });
     if (result.status === 'updated') {
         toastr.success('Snippet updated', TOAST_TITLE, {
             timeOut: 1500,

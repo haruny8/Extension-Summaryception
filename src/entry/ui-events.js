@@ -29,6 +29,7 @@ import {
 } from './ui-bind.js';
 import { bindManualRunControls } from './ui-manual-run.js';
 import { bindPromptProfiles } from './ui-prompts.js';
+import { bindPreviewSearch } from './ui-text-search.js';
 
 /**
  * @returns {void}
@@ -54,6 +55,7 @@ export function bindUIEvents({ notify, gate, queue, manualRunnerDeps }) {
     bindClickHandlers(notify, gate);
     bindManualRunControls({ notify, manualRunnerDeps });
     bindPromptProfiles();
+    bindPreviewSearch();
 }
 
 function bindModeHandlers(queue) {
@@ -309,9 +311,9 @@ function bindClickHandlers(notify, gate) {
     });
 
     $(document).on('click', '#sc_refresh_preview', () => refreshUi());
-
     $(document).on('click', '#sc_copy_preview', async function () {
-        const previewText = String($('#sc_preview').text() ?? '');
+        const preview = $('#sc_preview');
+        const previewText = String(preview.attr('data-copy-text') ?? preview.text() ?? '');
         try {
             if (navigator.clipboard?.writeText) {
                 await navigator.clipboard.writeText(previewText);

@@ -19,6 +19,7 @@ import { buildInjection, measureInjection } from '../core/memory-injection.js';
 import { syncAllSettingsToDOM, syncRoleMaskModeControl } from './ui-bind.js';
 import { syncPromptProfiles } from './ui-prompts.js';
 import { updateSnippetBrowser } from './ui-snippets.js';
+import { refreshPreviewSearch } from './ui-text-search.js';
 import { syncConnectionPanels } from './ui-connection.js';
 import {
     buildContextBudgetViewModel,
@@ -364,6 +365,7 @@ function renderLayerStats(s, store, ghostedCount) {
 function renderPreview(injection, usage) {
     const preview = $('#sc_preview').empty();
     const text = injection.text || '(empty - no summaries yet)';
+    preview.attr('data-copy-text', text);
     let cursor = 0;
 
     for (const part of injection.parts || []) {
@@ -397,6 +399,7 @@ function renderPreview(injection, usage) {
     if (!injection.parts?.length) {
         preview.text(text);
     }
+    refreshPreviewSearch();
     $('#sc_preview_token_count').text(
         `${formatBudgetTokenLabel(usage.total.count, usage.total.estimated)} tokens`,
     );
