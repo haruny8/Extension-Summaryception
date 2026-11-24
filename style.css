@@ -740,15 +740,15 @@ label.sc-toggle-row input[type='radio'] {
     opacity: 0.65;
 }
 .sc-preview-anchor[data-layer="0"],
-.sc-preview-divider[data-layer="0"] { --sc-preview-layer-color: #e89b68; }
+.sc-preview-divider[data-layer="0"] { --sc-preview-layer-color: #78a9e8; }
 .sc-preview-anchor[data-layer="1"],
 .sc-preview-divider[data-layer="1"] { --sc-preview-layer-color: #6bbd9b; }
 .sc-preview-anchor[data-layer="2"],
-.sc-preview-divider[data-layer="2"] { --sc-preview-layer-color: #78a9e8; }
+.sc-preview-divider[data-layer="2"] { --sc-preview-layer-color: #c4b45f; }
 .sc-preview-anchor[data-layer="3"],
-.sc-preview-divider[data-layer="3"] { --sc-preview-layer-color: #d68ac2; }
+.sc-preview-divider[data-layer="3"] { --sc-preview-layer-color: #e89b68; }
 .sc-preview-anchor[data-layer="4"],
-.sc-preview-divider[data-layer="4"] { --sc-preview-layer-color: #c4b45f; }
+.sc-preview-divider[data-layer="4"] { --sc-preview-layer-color: #d68ac2; }
 .sc-memory-actions {
     justify-content: space-between;
     margin-top: 6px;
@@ -770,11 +770,11 @@ label.sc-toggle-row input[type='radio'] {
     border-radius: 50%;
     background: var(--sc-preview-layer-color);
 }
-.sc-layer-legend i[data-layer="0"] { --sc-preview-layer-color: #e89b68; }
+.sc-layer-legend i[data-layer="0"] { --sc-preview-layer-color: #78a9e8; }
 .sc-layer-legend i[data-layer="1"] { --sc-preview-layer-color: #6bbd9b; }
-.sc-layer-legend i[data-layer="2"] { --sc-preview-layer-color: #78a9e8; }
-.sc-layer-legend i[data-layer="3"] { --sc-preview-layer-color: #d68ac2; }
-.sc-layer-legend i[data-layer="4"] { --sc-preview-layer-color: #c4b45f; }
+.sc-layer-legend i[data-layer="2"] { --sc-preview-layer-color: #c4b45f; }
+.sc-layer-legend i[data-layer="3"] { --sc-preview-layer-color: #e89b68; }
+.sc-layer-legend i[data-layer="4"] { --sc-preview-layer-color: #d68ac2; }
 .sc-snippet-browser {
     min-height: 280px;
     max-height: min(62vh, 640px);
@@ -836,10 +836,11 @@ label.sc-toggle-row input[type='radio'] {
     grid-row: 2;
     min-width: 0;
     overflow: hidden;
-    opacity: 0.58;
+    opacity: 0.9;
     font-size: 0.84em;
     text-overflow: ellipsis;
     white-space: nowrap;
+    color: #a7d6ff;
 }
 .sc-snippet-delete,
 .sc-snippet-redo {
@@ -896,8 +897,8 @@ label.sc-toggle-row input[type='radio'] {
 .sc-snippet-editor-meta {
     flex: 0 0 auto;
     margin: 0 0 12px;
-    opacity: 0.58;
     font-size: 0.95em;
+    color: #abd0f1;
 }
 .sc-snippet-editor-textarea {
     min-height: 0;

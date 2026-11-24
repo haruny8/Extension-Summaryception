@@ -2,6 +2,12 @@
 
 Layered recursive memory for SillyTavern.
 
+## Fork changes
+
+- Refines structured summarization and promotion prompts, with cancellable compression, configurable promotion guidance, and clearer promotion outcomes.
+- Improves the snippet browser and editor with safer edit confirmations and text search; the injection preview also highlights memory layers.
+- Removes the Continuity Auditor and gates automatic summarization requests to avoid starting work when summarization is blocked.
+
 Summaryception is for long roleplay chats that should remember what happened without shoving the whole backstory into every prompt. It runs as a plain browser extension inside [SillyTavern](https://github.com/SillyTavern/SillyTavern). No build step, no server, no database.
 
 The short version: recent chat stays verbatim. Older chat becomes compact memory. The original messages stay in the chat UI, but Summaryception hides them from the model once they are covered by memory.
